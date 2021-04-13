@@ -4,11 +4,7 @@
  */
 package ash.nazg.storage;
 
-import ash.nazg.config.tdl.Constants;
-import ash.nazg.config.tdl.Interpreter;
-import ash.nazg.config.tdl.PropertiesReader;
-import ash.nazg.config.tdl.StreamResolver;
-import ash.nazg.spark.WrapperBase;
+import ash.nazg.config.tdl.*;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDDLike;
@@ -17,17 +13,19 @@ import org.apache.spark.api.java.JavaSparkContext;
 import java.io.InputStream;
 import java.util.*;
 
-public class TestStorageWrapper extends WrapperBase implements AutoCloseable {
-    public final Map<String, JavaRDDLike> result = new HashMap<>();
+public class StorageTestRunner implements AutoCloseable {
+    private final JavaSparkContext context;
+    private final TaskDefinitionLanguage.Task taskConfig;
 
-    private static final SparkConf sparkConf = new SparkConf()
-            .setAppName("test")
-            .set("spark.serializer", org.apache.spark.serializer.KryoSerializer.class.getCanonicalName())
-            .setMaster("local[*]")
-            .set("spark.network.timeout", "10000")
-            .set("spark.ui.enabled", "false");
+    public StorageTestRunner(boolean replpath, String path) {
+        SparkConf sparkConf = new SparkConf()
+                .setAppName("One Ring Test Runner")
+                .set("spark.serializer", org.apache.spark.serializer.KryoSerializer.class.getCanonicalName())
+                .setMaster("local[*]")
+                .set("spark.network.timeout", "10000")
+                .set("spark.ui.enabled", "false");
 
-    public TestStorageWrapper(boolean replpath, String path) {
+        context = new JavaSparkContext(sparkConf);
         context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
         try (InputStream input = getClass().getResourceAsStream(path)) {
@@ -44,18 +42,15 @@ public class TestStorageWrapper extends WrapperBase implements AutoCloseable {
                 }
             }
 
-            configure(new JavaSparkContext(sparkConf), PropertiesReader.toTask(source, null));
+            taskConfig = PropertiesReader.toTask(source, null);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-
     }
 
-    public void close() {
-        context.stop();
-    }
+    public Map<String, JavaRDDLike> go() throws Exception {
+        HashMap<String, JavaRDDLike> result = new HashMap<>();
 
-    public void go() throws Exception {
         StreamResolver dsResolver = new StreamResolver(taskConfig.dataStreams);
 
         for (String sink : taskConfig.sink) {
@@ -91,5 +86,11 @@ public class TestStorageWrapper extends WrapperBase implements AutoCloseable {
                 outputAdapter.save(path, rdd);
             }
         }
+
+        return result;
+    }
+
+    public void close() {
+        context.stop();
     }
 }
