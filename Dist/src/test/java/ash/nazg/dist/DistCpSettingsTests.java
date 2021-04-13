@@ -5,6 +5,7 @@
 package ash.nazg.dist;
 
 import ash.nazg.config.InvalidConfigValueException;
+import ash.nazg.storage.hadoop.FileStorage;
 import org.junit.Test;
 import scala.Tuple3;
 
@@ -16,7 +17,7 @@ import static org.junit.Assert.fail;
 public class DistCpSettingsTests {
     @Test
     public void splitTestValid() throws InvalidConfigValueException {
-        List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(
+        List<Tuple3<String, String, String>> splits = FileStorage.srcDestGroup(
                 "s3://mama/asdfasf/{sdf,sdfsdf,sdsdf{sdfsdf,sdf}}" +
                         ",s3://sdfsdf/sdfs/sdf" +
                         ",s3://nnn/sad/\\{sdfsdf??" +
@@ -73,7 +74,7 @@ public class DistCpSettingsTests {
     @Test
     public void splitTestInvalid() {
         try {
-            DistCpSettings.srcDestGroup(
+            FileStorage.srcDestGroup(
                     "s3://mama/xx{sdf,sdfsdf,sdsdf{sdfsdf,sdf}}"
             );
 
@@ -83,7 +84,7 @@ public class DistCpSettingsTests {
         }
 
         try {
-            DistCpSettings.srcDestGroup(
+            FileStorage.srcDestGroup(
                     "s3://sdfsdf"
             );
 
@@ -93,7 +94,7 @@ public class DistCpSettingsTests {
         }
 
         try {
-            DistCpSettings.srcDestGroup(
+            FileStorage.srcDestGroup(
                     "/no/protocol/part"
             );
 
@@ -103,7 +104,7 @@ public class DistCpSettingsTests {
         }
 
         try {
-            DistCpSettings.srcDestGroup(
+            FileStorage.srcDestGroup(
                     "file://shoot/[me"
             );
 
@@ -113,7 +114,7 @@ public class DistCpSettingsTests {
         }
 
         try {
-            DistCpSettings.srcDestGroup(
+            FileStorage.srcDestGroup(
                     "file://shoot/{me,too"
             );
 

@@ -11,6 +11,7 @@ import ash.nazg.config.tdl.LayerResolver;
 import ash.nazg.config.tdl.StreamResolver;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import ash.nazg.storage.*;
+import ash.nazg.storage.hadoop.FileStorage;
 import com.google.common.collect.Lists;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.ParseException;
@@ -114,7 +115,7 @@ public class Main {
                             System.out.println("- columns: " + Arrays.toString(dsResolver.rawInputColumns(sink)));
                             System.out.println("- delimiter: " + dsResolver.inputDelimiter(sink));
 
-                            List<Tuple3<String, String, String>> splits = DistCpSettings.srcDestGroup(path);
+                            List<Tuple3<String, String, String>> splits = FileStorage.srcDestGroup(path);
                             for (Tuple3<String, String, String> split : splits) {
                                 inputs.add(new Tuple4<>(split._2(), settings.inputDir + "/" + sink, split._3(), sink));
                             }
