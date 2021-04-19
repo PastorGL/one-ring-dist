@@ -7,6 +7,7 @@ package ash.nazg.storage;
 import ash.nazg.config.tdl.*;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.spark.SparkConf;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
 
@@ -58,7 +59,7 @@ public class StorageTestRunner implements AutoCloseable {
 
             InputAdapter inputAdapter = Adapters.input(path).newInstance();
             inputAdapter.initialize(context);
-            inputAdapter.configure(sink, taskConfig.dataStreams);
+            inputAdapter.configure(sink, taskConfig);
             result.put(sink, inputAdapter.load(path));
         }
 
@@ -82,8 +83,8 @@ public class StorageTestRunner implements AutoCloseable {
 
                 OutputAdapter outputAdapter = Adapters.output(path).newInstance();
                 outputAdapter.initialize(context);
-                outputAdapter.configure(teeName, taskConfig.dataStreams);
-                outputAdapter.save(path, rdd);
+                outputAdapter.configure(teeName, taskConfig);
+                outputAdapter.save(path, (JavaRDD) rdd);
             }
         }
 

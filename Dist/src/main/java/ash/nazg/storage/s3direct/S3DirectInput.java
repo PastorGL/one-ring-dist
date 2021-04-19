@@ -12,7 +12,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import org.apache.spark.api.java.JavaRDDLike;
+import org.apache.spark.api.java.JavaRDD;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -38,7 +38,7 @@ public class S3DirectInput extends InputAdapter {
     }
 
     @Override
-    public void configure() {
+    protected void configure() {
         accessKey = inputResolver.get("access.key." + name);
         secretKey = inputResolver.get("secret.key." + name);
 
@@ -46,7 +46,7 @@ public class S3DirectInput extends InputAdapter {
     }
 
     @Override
-    public JavaRDDLike load(String path) {
+    public JavaRDD load(String path) {
         Matcher m = PATTERN.matcher(path);
         m.matches();
         String bucket = m.group(1);
@@ -72,7 +72,7 @@ public class S3DirectInput extends InputAdapter {
         final String _secretKey = secretKey;
         final String _bucket = bucket;
 
-        JavaRDDLike rdd = ctx.parallelize(s3FileKeys, partCount)
+        JavaRDD rdd = context.parallelize(s3FileKeys, partCount)
                 .mapPartitions(it -> {
                     AmazonS3ClientBuilder s3cb = AmazonS3ClientBuilder.standard()
                             .enableForceGlobalBucketAccess();

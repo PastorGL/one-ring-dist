@@ -16,16 +16,9 @@ import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import org.apache.hadoop.io.Text;
-import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaRDDLike;
-import org.apache.spark.api.java.function.Function2;
 import org.sparkproject.guava.collect.Iterators;
-import scala.Tuple2;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -47,7 +40,7 @@ public class S3DirectOutput extends OutputAdapter {
     }
 
     @Override
-    public void configure() throws InvalidConfigValueException {
+    protected void configure() throws InvalidConfigValueException {
         accessKey = outputResolver.get("access.key." + name);
         secretKey = outputResolver.get("secret.key." + name);
 
@@ -58,65 +51,27 @@ public class S3DirectOutput extends OutputAdapter {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void save(String path, JavaRDDLike rdd) {
+    public void save(String path, JavaRDD rdd) {
         Matcher m = PATTERN.matcher(path);
         m.matches();
-        String bucket = m.group(1);
-        String key = m.group(2);
 
-        if (rdd instanceof JavaRDD) {
-            rdd
-                    .mapPartitionsWithIndex(new S3DirectWriteFunction(accessKey, secretKey, bucket, key, contentType), true)
-                    .count();
-        }
-        if (rdd instanceof JavaPairRDD) {
-            final String _delimiter = "" + delimiter;
+        final String bucket = m.group(1);
+        final String key = m.group(2);
 
-            ((JavaPairRDD<Object, Object>) rdd)
-                    .mapPartitionsWithIndex((idx, it) -> {
-                        List ret = new ArrayList<>();
+        final String _accessKey = accessKey;
+        final String _secretKey = secretKey;
+        final String _contentType = contentType;
 
-                        while (it.hasNext()) {
-                            Tuple2 v = it.next();
-
-                            ret.add(new Text(v._1 + _delimiter + v._2));
-                        }
-
-                        return new S3DirectWriteFunction(accessKey, secretKey, bucket, key, contentType).call(idx, ret.iterator());
-                    }, true)
-                    .count();
-        }
-    }
-
-    public static class S3DirectWriteFunction implements Function2<Integer, Iterator<Object>, Iterator<Object>> {
-        private final String _accessKey;
-        private final String _secretKey;
-        private final String _bucket;
-        private final String _path;
-        private final String _contentType;
-        private transient AmazonS3 _client;
-
-        private S3DirectWriteFunction(String accessKey, String secretKey, String bucket, String path, String contentType) {
-            _accessKey = accessKey;
-            _secretKey = secretKey;
-            _bucket = bucket;
-            _path = path;
-            _contentType = contentType;
-        }
-
-        @Override
-        public Iterator<Object> call(Integer partNumber, Iterator<Object> partition) {
-            if (_client == null) {
-                AmazonS3ClientBuilder s3ClientBuilder = AmazonS3ClientBuilder.standard()
-                        .enableForceGlobalBucketAccess();
-                if ((_accessKey != null) && (_secretKey != null)) {
-                    s3ClientBuilder.setCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(_accessKey, _secretKey)));
-                }
-
-                _client = s3ClientBuilder.build();
+        ((JavaRDD<Object>) rdd).mapPartitionsWithIndex((partNumber, partition) -> {
+            AmazonS3ClientBuilder s3ClientBuilder = AmazonS3ClientBuilder.standard()
+                    .enableForceGlobalBucketAccess();
+            if ((_accessKey != null) && (_secretKey != null)) {
+                s3ClientBuilder.setCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(_accessKey, _secretKey)));
             }
 
-            StreamTransferManager stm = new StreamTransferManager(_bucket, _path + "." + partNumber, _client) {
+            AmazonS3 _client = s3ClientBuilder.build();
+
+            StreamTransferManager stm = new StreamTransferManager(bucket, path + "." + partNumber, _client) {
                 @Override
                 public void customiseInitiateRequest(InitiateMultipartUploadRequest request) {
                     ObjectMetadata om = new ObjectMetadata();
@@ -152,6 +107,6 @@ public class S3DirectOutput extends OutputAdapter {
             stm.complete();
 
             return Iterators.emptyIterator();
-        }
+        }, true).count();
     }
 }

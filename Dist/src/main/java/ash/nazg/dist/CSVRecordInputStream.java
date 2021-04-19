@@ -7,9 +7,9 @@ package ash.nazg.dist;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import com.opencsv.CSVWriter;
-import org.apache.commons.io.Charsets;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 
 public class CSVRecordInputStream extends RecordInputStream {
     private final BufferedReader reader;
@@ -45,7 +45,7 @@ public class CSVRecordInputStream extends RecordInputStream {
                     writer.writeNext(acc, false);
                     writer.close();
 
-                    recordBuffer = stringBuffer.toString().getBytes(Charsets.UTF_8);
+                    recordBuffer = stringBuffer.toString().getBytes(StandardCharsets.UTF_8);
                     size = recordBuffer.length;
                 } catch (Exception e) {
                     size = 0;

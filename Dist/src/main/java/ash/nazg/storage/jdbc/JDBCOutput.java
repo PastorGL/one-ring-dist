@@ -9,7 +9,6 @@ import ash.nazg.storage.OutputAdapter;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaRDDLike;
 import org.sparkproject.guava.collect.Iterators;
 
 import java.sql.Connection;
@@ -41,7 +40,7 @@ public class JDBCOutput extends OutputAdapter {
     }
 
     @Override
-    public void configure() {
+    protected void configure() {
         dbDriver = outputResolver.get("jdbc.driver." + name);
         dbUrl = outputResolver.get("jdbc.url." + name);
         dbUser = outputResolver.get("jdbc.user." + name);
@@ -53,7 +52,7 @@ public class JDBCOutput extends OutputAdapter {
     }
 
     @Override
-    public void save(String path, JavaRDDLike rdd) {
+    public void save(String path, JavaRDD rdd) {
         final String _dbDriver = dbDriver;
         final String _dbUrl = dbUrl;
         final String _dbUser = dbUser;

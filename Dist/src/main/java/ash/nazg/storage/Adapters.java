@@ -10,16 +10,11 @@ import io.github.classgraph.ClassInfoList;
 import io.github.classgraph.ScanResult;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class Adapters {
-
     static private final List<AdapterInfo> INPUT_ADAPTERS = new ArrayList<>();
     static private final List<AdapterInfo> OUTPUT_ADAPTERS = new ArrayList<>();
-    static private AdapterInfo fallbackInput = null;
-    static private AdapterInfo fallbackOutput = null;
 
     static {
         try (ScanResult scanResult = new ClassGraph()
@@ -34,24 +29,13 @@ public class Adapters {
                 try {
                     InputAdapter ia = (InputAdapter) iaClass.newInstance();
                     AdapterInfo ai = new AdapterInfo(ia.proto(), (Class<? extends StorageAdapter>) iaClass);
-                    if (ia instanceof HadoopInput) {
-                        fallbackInput = ai;
-                    } else {
-                        INPUT_ADAPTERS.add(ai);
-                    }
+                    INPUT_ADAPTERS.add(ai);
                 } catch (Exception e) {
                     System.err.println("Cannot instantiate Input Adapter class '" + iaClass.getTypeName() + "'");
                     e.printStackTrace(System.err);
                     System.exit(-8);
                 }
             }
-        }
-
-        if (fallbackInput != null) {
-            INPUT_ADAPTERS.add(fallbackInput);
-        } else {
-            System.err.println("There is no fallback Input Adapter in the classpath. Won't continue");
-            System.exit(-8);
         }
 
         try (ScanResult scanResult = new ClassGraph()
@@ -66,11 +50,7 @@ public class Adapters {
                 try {
                     OutputAdapter oa = (OutputAdapter) oaClass.newInstance();
                     AdapterInfo ai = new AdapterInfo(oa.proto(), (Class<? extends StorageAdapter>) oaClass);
-                    if (oa instanceof HadoopOutput) {
-                        fallbackOutput = ai;
-                    } else {
-                        OUTPUT_ADAPTERS.add(ai);
-                    }
+                    OUTPUT_ADAPTERS.add(ai);
                 } catch (Exception e) {
                     System.err.println("Cannot instantiate Output Adapter class '" + oaClass.getTypeName() + "'");
                     e.printStackTrace(System.err);
@@ -78,45 +58,6 @@ public class Adapters {
                 }
             }
         }
-
-        if (fallbackOutput != null) {
-            OUTPUT_ADAPTERS.add(fallbackOutput);
-        } else {
-            System.err.println("There is no fallback Output Adapter in the classpath. Won't continue");
-            System.exit(-8);
-        }
-    }
-
-    static public Map<String, AdapterInfo> getAvailableInputAdapters(String pkgName) {
-        Map<String, AdapterInfo> ret = new HashMap<>();
-
-        INPUT_ADAPTERS.forEach(e -> {
-            if (e.getClass().getPackage().getName().equals(pkgName)) {
-                ret.put(e.getClass().getSimpleName(), e);
-            }
-        });
-
-        return ret;
-    }
-
-    static public Map<String, AdapterInfo> getAvailableOutputAdapters(String pkgName) {
-        Map<String, AdapterInfo> ret = new HashMap<>();
-
-        OUTPUT_ADAPTERS.forEach(e -> {
-            if (e.getClass().getPackage().getName().equals(pkgName)) {
-                ret.put(e.getClass().getSimpleName(), e);
-            }
-        });
-
-        return ret;
-    }
-
-    static public AdapterInfo getInputAdapter(String name) {
-        return INPUT_ADAPTERS.stream().filter(e -> e.getClass().getSimpleName().equals(name)).findFirst().orElse(null);
-    }
-
-    static public AdapterInfo getOutputAdapter(String name) {
-        return OUTPUT_ADAPTERS.stream().filter(e -> e.getClass().getSimpleName().equals(name)).findFirst().orElse(null);
     }
 
     static public Class<? extends InputAdapter> input(String path) {
@@ -126,7 +67,7 @@ public class Adapters {
             }
         }
 
-        return (Class<? extends InputAdapter>) fallbackInput.adapterClass;
+        return null;
     }
 
     static public Class<? extends OutputAdapter> output(String path) {
@@ -136,6 +77,6 @@ public class Adapters {
             }
         }
 
-        return (Class<? extends OutputAdapter>) fallbackOutput.adapterClass;
+        return null;
     }
 }

@@ -9,7 +9,7 @@ import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.InputAdapter;
 import com.opencsv.CSVWriter;
 import org.apache.hadoop.io.Text;
-import org.apache.spark.api.java.JavaRDDLike;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.rdd.JdbcRDD;
 import scala.reflect.ClassManifestFactory$;
@@ -47,7 +47,7 @@ public class JDBCInput extends InputAdapter {
     }
 
     @Override
-    public void configure() throws InvalidConfigValueException {
+    protected void configure() throws InvalidConfigValueException {
         dbDriver = inputResolver.get("jdbc.driver." + name);
         dbUrl = inputResolver.get("jdbc.url." + name);
         dbUser = inputResolver.get("jdbc.user." + name);
@@ -58,7 +58,7 @@ public class JDBCInput extends InputAdapter {
     }
 
     @Override
-    public JavaRDDLike load(String path) {
+    public JavaRDD load(String path) {
         final char _inputDelimiter = delimiter;
 
         return new JdbcRDD<Object[]>(

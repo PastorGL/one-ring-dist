@@ -3,15 +3,37 @@ package ash.nazg.storage.hadoop;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.storage.StorageAdapter;
 import org.apache.commons.lang3.StringUtils;
-import scala.Tuple3;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.compress.*;
+import scala.Tuple2;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 
 public class FileStorage {
-    public static List<Tuple3<String, String, String>> srcDestGroup(String inputPath) throws InvalidConfigValueException {
-        List<Tuple3<String, String, String>> ret = new ArrayList<>();
+    public static final Map<String, Class<? extends CompressionCodec>> CODECS = new HashMap<>();
+
+    static {
+        CODECS.put("gz", GzipCodec.class);
+        CODECS.put("gzip", GzipCodec.class);
+        CODECS.put("bz2", BZip2Codec.class);
+        CODECS.put("snappy", SnappyCodec.class);
+        CODECS.put("lz4", Lz4Codec.class);
+        CODECS.put("zstd", ZStandardCodec.class);
+    }
+
+    /**
+     * Create a list of file groups from a glob pattern.
+     *
+     * @param inputPath glob pattern(s) to files
+     * @return list of groups in form of Tuple3 [ group name, path, regex ]
+     * @throws InvalidConfigValueException if glob pattern is incorrect
+     */
+    public static List<Tuple2<String, String>> srcDestGroup(String inputPath) throws InvalidConfigValueException {
+        List<Tuple2<String, String>> ret = new ArrayList<>();
 
         int curlyLevel = 0;
 
@@ -197,7 +219,7 @@ public class FileStorage {
                 if (!joined.isEmpty()) {
                     joined += "/";
                 }
-                ret.add(new Tuple3<>(groupSub,
+                ret.add(new Tuple2<>(
                         rootPath + "/" + joined + groupSub,
                         ".*/" + StringUtils.join(transSubs.subList(groupingSub, transSubs.size()), '/') + ".*"
                 ));
@@ -207,5 +229,19 @@ public class FileStorage {
         }
 
         return ret;
+    }
+
+    public static String suffix(Path filePath) {
+        String suffix = "";
+
+        String name = filePath.getName();
+        if (!StringUtils.isEmpty(name)) {
+            String[] parts = name.split("\\.");
+            if (parts.length > 1) {
+                suffix = parts[parts.length - 1];
+            }
+        }
+
+        return suffix;
     }
 }

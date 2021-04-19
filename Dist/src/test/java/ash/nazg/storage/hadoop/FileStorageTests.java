@@ -2,11 +2,12 @@
  * Copyright (C) 2020 Locomizer team and Contributors
  * This project uses New BSD license with do no evil clause. For full text, check the LICENSE file in the root directory.
  */
-package ash.nazg.dist;
+package ash.nazg.storage.hadoop;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.storage.hadoop.FileStorage;
 import org.junit.Test;
+import scala.Tuple2;
 import scala.Tuple3;
 
 import java.util.List;
@@ -14,10 +15,10 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-public class DistCpSettingsTests {
+public class FileStorageTests {
     @Test
-    public void splitTestValid() throws InvalidConfigValueException {
-        List<Tuple3<String, String, String>> splits = FileStorage.srcDestGroup(
+    public void srcDestGroupTest() throws InvalidConfigValueException {
+        List<Tuple2<String, String>> splits = FileStorage.srcDestGroup(
                 "s3://mama/asdfasf/{sdf,sdfsdf,sdsdf{sdfsdf,sdf}}" +
                         ",s3://sdfsdf/sdfs/sdf" +
                         ",s3://nnn/sad/\\{sdfsdf??" +
@@ -30,45 +31,37 @@ public class DistCpSettingsTests {
 
         assertEquals(8, splits.size());
 
-        Tuple3<String, String, String> s1 = splits.get(0);
-        assertEquals("asdfasf", s1._1());
-        assertEquals("s3://mama/asdfasf", s1._2());
-        assertEquals(".*/(asdfasf)/(?:sdf|sdfsdf|sdsdf(?:sdfsdf|sdf)).*", s1._3());
+        Tuple2<String, String> s1 = splits.get(0);
+        assertEquals("s3://mama/asdfasf", s1._1);
+        assertEquals(".*/(asdfasf)/(?:sdf|sdfsdf|sdsdf(?:sdfsdf|sdf)).*", s1._2);
 
-        Tuple3<String, String, String> s2 = splits.get(1);
-        assertEquals("sdf", s2._1());
-        assertEquals("s3://sdfsdf/sdfs/sdf", s2._2());
-        assertEquals(".*/(sdf).*", s2._3());
+        Tuple2<String, String> s2 = splits.get(1);
+        assertEquals("s3://sdfsdf/sdfs/sdf", s2._1);
+        assertEquals(".*/(sdf).*", s2._2);
 
-        Tuple3<String, String, String> s3 = splits.get(2);
-        assertEquals("sad", s3._1());
-        assertEquals("s3://nnn/sad", s3._2());
-        assertEquals(".*/(sad)/\\{sdfsdf...*", s3._3());
+        Tuple2<String, String> s3 = splits.get(2);
+        assertEquals("s3://nnn/sad", s3._1);
+        assertEquals(".*/(sad)/\\{sdfsdf...*", s3._2);
 
-        Tuple3<String, String, String> s4 = splits.get(3);
-        assertEquals("woh", s4._1());
-        assertEquals("s3://doh/woh", s4._2());
-        assertEquals(".*/(woh)/sdfsdf\\}..*.*", s4._3());
+        Tuple2<String, String> s4 = splits.get(3);
+        assertEquals("s3://doh/woh", s4._1);
+        assertEquals(".*/(woh)/sdfsdf\\}..*.*", s4._2);
 
-        Tuple3<String, String, String> s5 = splits.get(4);
-        assertEquals("x", s5._1());
-        assertEquals("s3://222/x", s5._2());
-        assertEquals(".*/(x)/much\\\\sre..*", s5._3());
+        Tuple2<String, String> s5 = splits.get(4);
+        assertEquals("s3://222/x", s5._1);
+        assertEquals(".*/(x)/much\\\\sre..*", s5._2);
 
-        Tuple3<String, String, String> s6 = splits.get(5);
-        assertEquals("ty", s6._1());
-        assertEquals("file:/D:/qwer/ty", s6._2());
-        assertEquals(".*/(ty)/[^a-d]..*.*", s6._3());
+        Tuple2<String, String> s6 = splits.get(5);
+        assertEquals("file:/D:/qwer/ty", s6._1);
+        assertEquals(".*/(ty)/[^a-d]..*.*", s6._2);
 
-        Tuple3<String, String, String> s7 = splits.get(6);
-        assertEquals("skipped", s7._1());
-        assertEquals("hdfs:///not/skipped", s7._2());
-        assertEquals(".*/(skipped)/path.*.*", s7._3());
+        Tuple2<String, String> s7 = splits.get(6);
+        assertEquals("hdfs:///not/skipped", s7._1);
+        assertEquals(".*/(skipped)/path.*.*", s7._2);
 
-        Tuple3<String, String, String> s8 = splits.get(7);
-        assertEquals("path2", s8._1());
-        assertEquals("stor:/path/path2", s8._2());
-        assertEquals(".*/(path2)/(?:10/02/2020|11/02/2020).*", s8._3());
+        Tuple2<String, String> s8 = splits.get(7);
+        assertEquals("stor:/path/path2", s8._1);
+        assertEquals(".*/(path2)/(?:10/02/2020|11/02/2020).*", s8._2);
     }
 
     @Test
