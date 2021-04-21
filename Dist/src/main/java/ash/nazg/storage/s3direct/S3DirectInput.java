@@ -5,32 +5,28 @@
 package ash.nazg.storage.s3direct;
 
 import ash.nazg.config.tdl.Description;
-import ash.nazg.storage.InputAdapter;
-import com.amazonaws.auth.AWSStaticCredentialsProvider;
-import com.amazonaws.auth.BasicAWSCredentials;
+import ash.nazg.storage.hadoop.HadoopInput;
 import com.amazonaws.services.s3.AmazonS3;
-import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.function.FlatMapFunction;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @SuppressWarnings("unused")
-public class S3DirectInput extends InputAdapter {
+public class S3DirectInput extends HadoopInput {
     private static final Pattern PATTERN = Pattern.compile("^s3d://([^/]+)/(.+)");
 
     private int partCount;
 
     private String accessKey;
     private String secretKey;
+    private String region;
+    private String endpoint;
 
     @Description("S3 Direct adapter for any S3-compatible storage")
     public Pattern proto() {
@@ -39,8 +35,12 @@ public class S3DirectInput extends InputAdapter {
 
     @Override
     protected void configure() {
-        accessKey = inputResolver.get("access.key." + name);
-        secretKey = inputResolver.get("secret.key." + name);
+        super.configure();
+
+        accessKey = inputResolver.get("s3d.access.key." + name);
+        secretKey = inputResolver.get("s3d.secret.key." + name);
+        region = inputResolver.get("s3d.region." + name);
+        endpoint = inputResolver.get("s3d.endpoint." + name);
 
         partCount = Math.max(dsResolver.inputParts(name), 1);
     }
@@ -52,13 +52,7 @@ public class S3DirectInput extends InputAdapter {
         String bucket = m.group(1);
         String keyPrefix = m.group(2);
 
-        AmazonS3ClientBuilder s3ClientBuilder = AmazonS3ClientBuilder.standard()
-                .enableForceGlobalBucketAccess();
-        if ((accessKey != null) && (secretKey != null)) {
-            s3ClientBuilder.setCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKey, secretKey)));
-        }
-
-        AmazonS3 s3 = s3ClientBuilder.build();
+        AmazonS3 s3 = S3DirectStorage.get(endpoint, region, accessKey, secretKey);
 
         ListObjectsRequest request = new ListObjectsRequest();
         request.setBucketName(bucket);
@@ -72,30 +66,9 @@ public class S3DirectInput extends InputAdapter {
         final String _secretKey = secretKey;
         final String _bucket = bucket;
 
-        JavaRDD rdd = context.parallelize(s3FileKeys, partCount)
-                .mapPartitions(it -> {
-                    AmazonS3ClientBuilder s3cb = AmazonS3ClientBuilder.standard()
-                            .enableForceGlobalBucketAccess();
-                    if ((_accessKey != null) && (_secretKey != null)) {
-                        s3cb.setCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(_accessKey, _secretKey)));
-                    }
-                    AmazonS3 _s3 = s3cb.build();
+        FlatMapFunction<List<String>, Object> inputFunction = new S3DirectInputFunction(sinkSchema, sinkColumns, sinkDelimiter, maxRecordSize);
 
-                    Stream<String> lines = null;
-                    while (it.hasNext()) {
-                        String key = it.next();
-
-                        Stream<String> file = new BufferedReader(new InputStreamReader(_s3.getObject(_bucket, key).getObjectContent(), StandardCharsets.UTF_8.name())).lines();
-                        if ((lines == null)) {
-                            lines = file;
-                        } else {
-                            lines = Stream.concat(lines, file);
-                        }
-                    }
-
-                    return lines.iterator();
-                });
-
-        return rdd;
+        return context.parallelize(s3FileKeys, partCount)
+                .flatMap(inputFunction);
     }
 }
