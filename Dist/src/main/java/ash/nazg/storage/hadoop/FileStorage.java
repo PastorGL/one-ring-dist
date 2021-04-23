@@ -231,10 +231,9 @@ public class FileStorage {
         return ret;
     }
 
-    public static String suffix(Path filePath) {
+    public static String suffix(String name) {
         String suffix = "";
 
-        String name = filePath.getName();
         if (!StringUtils.isEmpty(name)) {
             String[] parts = name.split("\\.");
             if (parts.length > 1) {

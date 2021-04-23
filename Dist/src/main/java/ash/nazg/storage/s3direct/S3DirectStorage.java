@@ -6,7 +6,11 @@ import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 
+import java.util.regex.Pattern;
+
 public class S3DirectStorage {
+    public static final Pattern PATTERN = Pattern.compile("^s3d://([^/]+)/(.+)");
+
     public static AmazonS3 get(String endpoint, String region, String accessKey, String secretKey) {
         AmazonS3ClientBuilder s3ClientBuilder = AmazonS3ClientBuilder.standard();
         if (endpoint != null) {

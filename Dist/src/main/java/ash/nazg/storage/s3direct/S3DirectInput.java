@@ -9,6 +9,7 @@ import ash.nazg.storage.hadoop.HadoopInput;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
+import com.google.common.collect.Lists;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
 
@@ -21,12 +22,11 @@ import java.util.stream.Collectors;
 public class S3DirectInput extends HadoopInput {
     private static final Pattern PATTERN = Pattern.compile("^s3d://([^/]+)/(.+)");
 
-    private int partCount;
-
     private String accessKey;
     private String secretKey;
-    private String region;
     private String endpoint;
+    private String region;
+    private String tmpDir;
 
     @Description("S3 Direct adapter for any S3-compatible storage")
     public Pattern proto() {
@@ -39,10 +39,10 @@ public class S3DirectInput extends HadoopInput {
 
         accessKey = inputResolver.get("s3d.access.key." + name);
         secretKey = inputResolver.get("s3d.secret.key." + name);
-        region = inputResolver.get("s3d.region." + name);
         endpoint = inputResolver.get("s3d.endpoint." + name);
+        region = inputResolver.get("s3d.region." + name);
 
-        partCount = Math.max(dsResolver.inputParts(name), 1);
+        tmpDir = distResolver.get("dir.tmp", "hdfs:///tmp");
     }
 
     @Override
@@ -58,17 +58,23 @@ public class S3DirectInput extends HadoopInput {
         request.setBucketName(bucket);
         request.setPrefix(keyPrefix);
 
-        List<String> s3FileKeys = s3.listObjects(request).getObjectSummaries().stream()
+        List<String> discoveredFiles = s3.listObjects(request).getObjectSummaries().stream()
                 .map(S3ObjectSummary::getKey)
                 .collect(Collectors.toList());
 
-        final String _accessKey = accessKey;
-        final String _secretKey = secretKey;
-        final String _bucket = bucket;
+        int countOfFiles = discoveredFiles.size();
 
-        FlatMapFunction<List<String>, Object> inputFunction = new S3DirectInputFunction(sinkSchema, sinkColumns, sinkDelimiter, maxRecordSize);
+        int groupSize = countOfFiles / partCount;
+        if (groupSize <= 0) {
+            groupSize = 1;
+        }
 
-        return context.parallelize(s3FileKeys, partCount)
+        List<List<String>> sinkParts = Lists.partition(discoveredFiles, groupSize);
+
+        FlatMapFunction<List<String>, Object> inputFunction = new S3DirectInputFunction(sinkSchema, sinkColumns, sinkDelimiter, maxRecordSize,
+                endpoint, region, accessKey, secretKey, bucket, tmpDir);
+
+        return context.parallelize(sinkParts, sinkParts.size())
                 .flatMap(inputFunction);
     }
 }

@@ -31,6 +31,7 @@ public class HadoopInput extends InputAdapter {
     protected int maxRecordSize;
 
     protected static final int DEFAULT_SIZE = 1024 * 1024;
+    protected int numOfExecutors;
 
     @Description("Default Storage that utilizes Hadoop filesystems")
     public Pattern proto() {
@@ -39,23 +40,27 @@ public class HadoopInput extends InputAdapter {
 
     @Override
     protected void configure() throws InvalidConfigValueException {
-        partCount = dsResolver.inputParts(name);
-
         sinkSchema = dsResolver.sinkSchema(name);
         sinkColumns = dsResolver.rawInputColumns(name);
         sinkDelimiter = dsResolver.inputDelimiter(name);
 
         maxRecordSize = Integer.parseInt(inputResolver.get("max.record.size", String.valueOf(DEFAULT_SIZE)));
+
+        partCount = Math.max(dsResolver.inputParts(name), 1);
+
+        int executors = Integer.parseInt(context.getConf().get("spark.executor.instances", "-1"));
+        numOfExecutors = (executors <= 0) ? 1 : (int) Math.ceil(executors * 0.8);
+        numOfExecutors = Math.max(numOfExecutors, 1);
+
+        if (partCount <= 0) {
+            partCount = numOfExecutors;
+        }
     }
 
     @Override
     public JavaRDD load(String globPattern) {
         // path, regex
         List<Tuple2<String, String>> splits = FileStorage.srcDestGroup(globPattern);
-
-        int executors = Integer.parseInt(context.getConf().get("spark.executor.instances", "-1"));
-        int numOfExecutors = (executors <= 0) ? 1 : (int) Math.ceil(executors * 0.8);
-        numOfExecutors = Math.max(numOfExecutors, 1);
 
         // files
         List<String> discoveredFiles = context.parallelize(splits, numOfExecutors)
@@ -88,10 +93,6 @@ public class HadoopInput extends InputAdapter {
                     return files.iterator();
                 })
                 .collect();
-
-        if (partCount <= 0) {
-            partCount = numOfExecutors;
-        }
 
         int countOfFiles = discoveredFiles.size();
 

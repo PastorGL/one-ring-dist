@@ -11,6 +11,7 @@ import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.hadoop.example.GroupReadSupport;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.schema.MessageType;
 import org.apache.spark.api.java.function.FlatMapFunction;
 
@@ -40,8 +41,7 @@ public class InputFunction implements FlatMapFunction<List<String>, Object> {
             Configuration conf = new Configuration();
             try {
                 for (String inputFile : src) {
-                    Path inputFilePath = new Path(inputFile);
-                    InputStream inputStream = decorateInputStream(conf, inputFilePath);
+                    InputStream inputStream = decorateInputStream(conf, inputFile);
 
                     int len;
                     for (byte[] buffer = new byte[_bufferSize]; (len = inputStream.read(buffer)) > 0; ) {
@@ -58,73 +58,86 @@ public class InputFunction implements FlatMapFunction<List<String>, Object> {
             return ret.iterator();
     }
 
-    private InputStream decorateInputStream(Configuration conf, Path inputFilePath) throws IOException, InstantiationException, IllegalAccessException {
+    protected InputStream decorateInputStream(Configuration conf, String inputFile) throws Exception {
         InputStream inputStream;
 
-        String suffix = FileStorage.suffix(inputFilePath);
+        String suffix = FileStorage.suffix(inputFile);
 
         if ("parquet".equalsIgnoreCase(suffix)) {
-            ParquetMetadata readFooter = ParquetFileReader.readFooter(conf, inputFilePath, ParquetMetadataConverter.NO_FILTER);
-            MessageType schema = readFooter.getFileMetaData().getSchema();
-
-            int[] fieldOrder;
-            if (_columns != null) {
-                fieldOrder = new int[_columns.length];
-
-                for (int i = 0; i < _columns.length; i++) {
-                    String column = _columns[i];
-                    fieldOrder[i] = schema.getFieldIndex(column);
-                }
-            } else {
-                fieldOrder = IntStream.range(0, schema.getFieldCount()).toArray();
-            }
-
-            GroupReadSupport readSupport = new GroupReadSupport();
-            readSupport.init(conf, null, schema);
-            ParquetReader<Group> reader = ParquetReader.builder(readSupport, inputFilePath).build();
-
-            inputStream = new ParquetRecordInputStream(reader, fieldOrder, _delimiter);
+            inputStream = getParquetInputStream(conf, inputFile);
         } else {
+            Path inputFilePath = new Path(inputFile);
             FileSystem inputFs = inputFilePath.getFileSystem(conf);
             inputStream = inputFs.open(inputFilePath);
 
-            suffix = suffix.toLowerCase();
-            if (FileStorage.CODECS.containsKey(suffix)) {
-                Class<? extends CompressionCodec> cc = FileStorage.CODECS.get(suffix);
-                CompressionCodec codec = cc.newInstance();
-                ((Configurable) codec).setConf(conf);
+            inputStream = getTextInputStream(conf, inputStream, suffix);
+        }
 
-                inputStream = codec.createInputStream(inputStream);
+        return inputStream;
+    }
+
+    protected InputStream getParquetInputStream(Configuration conf, String inputFile) throws Exception {
+        Path inputFilePath = new Path(inputFile);
+
+        ParquetMetadata readFooter = ParquetFileReader.readFooter(HadoopInputFile.fromPath(inputFilePath, conf), ParquetMetadataConverter.NO_FILTER);
+        MessageType schema = readFooter.getFileMetaData().getSchema();
+
+        int[] fieldOrder;
+        if (_columns != null) {
+            fieldOrder = new int[_columns.length];
+
+            for (int i = 0; i < _columns.length; i++) {
+                String column = _columns[i];
+                fieldOrder[i] = schema.getFieldIndex(column);
             }
+        } else {
+            fieldOrder = IntStream.range(0, schema.getFieldCount()).toArray();
+        }
 
-            if ((_schema != null) || (_columns != null)) {
-                int[] columnOrder;
+        GroupReadSupport readSupport = new GroupReadSupport();
+        readSupport.init(conf, null, schema);
+        ParquetReader<Group> reader = ParquetReader.builder(readSupport, inputFilePath).build();
 
-                if (_schema != null) {
-                    if (_columns == null) {
-                        columnOrder = IntStream.range(0, _schema.length).toArray();
-                    } else {
-                        Map<String, Integer> schema = new HashMap<>();
-                        for (int i = 0; i < _schema.length; i++) {
-                            schema.put(_schema[i], i);
-                        }
+        return new ParquetRecordInputStream(reader, fieldOrder, _delimiter);
+    }
 
-                        Map<Integer, String> columns = new HashMap<>();
-                        for (int i = 0; i < _columns.length; i++) {
-                            columns.put(i, _columns[i]);
-                        }
+    protected InputStream getTextInputStream(Configuration conf, InputStream inputStream, String codec) throws InstantiationException, IllegalAccessException, IOException {
+        codec = codec.toLowerCase();
+        if (FileStorage.CODECS.containsKey(codec)) {
+            Class<? extends CompressionCodec> codecClass = FileStorage.CODECS.get(codec);
+            CompressionCodec cc = codecClass.newInstance();
+            ((Configurable) cc).setConf(conf);
 
-                        columnOrder = new int[_columns.length];
-                        for (int i = 0; i < _columns.length; i++) {
-                            columnOrder[i] = schema.get(columns.get(i));
-                        }
-                    }
+            inputStream = cc.createInputStream(inputStream);
+        }
+
+        if ((_schema != null) || (_columns != null)) {
+            int[] columnOrder;
+
+            if (_schema != null) {
+                if (_columns == null) {
+                    columnOrder = IntStream.range(0, _schema.length).toArray();
                 } else {
-                    columnOrder = IntStream.range(0, _columns.length).toArray();
-                }
+                    Map<String, Integer> schema = new HashMap<>();
+                    for (int i = 0; i < _schema.length; i++) {
+                        schema.put(_schema[i], i);
+                    }
 
-                inputStream = new CSVRecordInputStream(inputStream, columnOrder, _delimiter);
+                    Map<Integer, String> columns = new HashMap<>();
+                    for (int i = 0; i < _columns.length; i++) {
+                        columns.put(i, _columns[i]);
+                    }
+
+                    columnOrder = new int[_columns.length];
+                    for (int i = 0; i < _columns.length; i++) {
+                        columnOrder[i] = schema.get(columns.get(i));
+                    }
+                }
+            } else {
+                columnOrder = IntStream.range(0, _columns.length).toArray();
             }
+
+            inputStream = new CSVRecordInputStream(inputStream, columnOrder, _delimiter);
         }
 
         return inputStream;
