@@ -20,9 +20,8 @@ public class S3DirectStorage {
             s3ClientBuilder.setCredentials(new AWSStaticCredentialsProvider(new BasicAWSCredentials(accessKey, secretKey)));
         }
 
-        AmazonS3 s3 = s3ClientBuilder
+        return s3ClientBuilder
                 .enableForceGlobalBucketAccess()
                 .build();
-
     }
 }

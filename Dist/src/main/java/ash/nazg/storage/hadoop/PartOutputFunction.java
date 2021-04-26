@@ -71,16 +71,19 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Object>, 
         String suffix = FileStorage.suffix(outputPath);
 
         if ("parquet".equalsIgnoreCase(suffix)) {
-            Path partPath = new Path(outputPath, String.format("%05d", idx)
-                    + (!"none".equalsIgnoreCase(codec) ? "." + codec : "")
-                    + ".parquet");
+            String partName = outputPath.substring(0, outputPath.lastIndexOf("/")) + "/" + String.format("part-%05d", idx)
+                    + (FileStorage.CODECS.containsKey(codec) ? "." + codec : "");
 
-            writeToParquetFile(conf, partPath, it);
+            partName += ".parquet";
+
+            writeToParquetFile(conf, new Path(partName), it);
 
             return null;
         } else {
-            Path partPath = new Path(outputPath, String.format("%05d", idx)
-                    + (!"none".equalsIgnoreCase(codec) ? "." + codec : ""));
+            String partName = outputPath + "/" + String.format("part-%05d", idx)
+                    + (FileStorage.CODECS.containsKey(codec) ? "." + codec : "");
+
+            Path partPath = new Path(partName);
 
             FileSystem outputFs = partPath.getFileSystem(conf);
             outputFs.setVerifyChecksum(false);
