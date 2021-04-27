@@ -40,7 +40,7 @@ public class S3DirectOutput extends HadoopOutput {
 
         contentType = outputResolver.get("s3d.content.type." + name, "text/csv");
 
-        tmpDir = distResolver.get("dir.tmp", "hdfs:///tmp");
+        tmpDir = distResolver.get("tmp");
     }
 
     @Override

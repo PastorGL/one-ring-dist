@@ -42,7 +42,7 @@ public class S3DirectInput extends HadoopInput {
         endpoint = inputResolver.get("s3d.endpoint." + name);
         region = inputResolver.get("s3d.region." + name);
 
-        tmpDir = distResolver.get("dir.tmp", "hdfs:///tmp");
+        tmpDir = distResolver.get("tmp");
     }
 
     @Override

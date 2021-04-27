@@ -40,7 +40,7 @@ public class HadoopInput extends InputAdapter {
 
     @Override
     protected void configure() throws InvalidConfigValueException {
-        sinkSchema = dsResolver.sinkSchema(name);
+        sinkSchema = inputResolver.getArray("sink.schema." + name);
         sinkColumns = dsResolver.rawInputColumns(name);
         sinkDelimiter = dsResolver.inputDelimiter(name);
 

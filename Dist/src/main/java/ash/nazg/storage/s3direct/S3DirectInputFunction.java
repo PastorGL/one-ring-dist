@@ -49,11 +49,13 @@ public class S3DirectInputFunction extends InputFunction {
 
             Path localPath = new Path(_tmp, pathHash);
 
-            if (!localPath.getFileSystem(conf).exists(localPath)) {
-                FSDataOutputStream fso = FileSystem.create(_tmp.getFileSystem(conf), localPath, FsPermission.getFileDefault());
+            FileSystem tmpFs = localPath.getFileSystem(conf);
+            if (!tmpFs.exists(localPath)) {
+                FSDataOutputStream fso = tmpFs.create(localPath, false);
 
                 IOUtils.copy(inputStream, fso);
                 fso.close();
+                tmpFs.deleteOnExit(localPath);
             }
 
             inputStream = getParquetInputStream(conf, localPath.toString());

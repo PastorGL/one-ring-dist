@@ -23,7 +23,6 @@ import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 import scala.Tuple3;
@@ -34,15 +33,15 @@ import java.util.Map;
 
 public class Main {
     private static final Logger LOG = Logger.getLogger(Main.class);
-    private static JavaSparkContext context;
 
     public static void main(String[] args) {
         TaskWrapperConfigBuilder configBuilder = new TaskWrapperConfigBuilder();
+        configBuilder.addRequiredOption("c", "config", true, "Config file");
+        configBuilder.addRequiredOption("t", "tmpDir", true, "Location for temporary files");
+        configBuilder.addOption("d", "direction", true, "Copy direction. Can be 'from', 'to', or 'nop' to just validate the config file and exit");
 
+        JavaSparkContext context = null;
         try {
-            configBuilder.addRequiredOption("c", "config", true, "Config file");
-            configBuilder.addOption("d", "direction", true, "Copy direction. Can be 'from', 'to', or 'nop' to just validate the config file and exit");
-
             configBuilder.setCommandLine(args);
 
             SparkConf sparkConf = new SparkConf()
@@ -69,36 +68,39 @@ public class Main {
             context = new JavaSparkContext(sparkConf);
             context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
-            TaskDefinitionLanguage.Task taskConfig = configBuilder.build(context);
-            configBuilder.foreignLayerVariable("dist.wrap", "d");
-            configBuilder.foreignLayerVariable("dist.store", "S");
-
-            StreamResolver dsResolver = new StreamResolver(taskConfig.dataStreams);
-
-            DistSettings settings = DistSettings.fromConfig(taskConfig.foreignLayer(Constants.DIST_LAYER));
+            TaskDefinitionLanguage.Task taskConfig = configBuilder.build(context, local);
+            configBuilder.foreignLayerVariable(taskConfig, "dist.wrap", "d");
+            configBuilder.foreignLayerVariable(taskConfig, "dist.store", "S");
+            configBuilder.foreignLayerVariable(taskConfig, "dist.tmp", "t");
 
             TaskDefinitionLanguage.Definitions props = taskConfig.foreignLayer(Constants.DIST_LAYER);
+            if (!props.containsKey("tmp")) {
+                props.put("tmp", local ? System.getProperty("java.io.tmpdir") : "hdfs:///tmp");
+            }
             LayerResolver distResolver = new LayerResolver(props);
 
-            CpDirection distDirection = CpDirection.parse(distResolver.get("wrap", "nop"));
-            if (distDirection == CpDirection.BOTH_DIRECTIONS) {
-                throw new InvalidConfigValueException("One Ring Dist's copy direction can't be 'both' because it's ambiguous");
+            String wrapperStorePath = distResolver.get("store");
+            if (!local && (wrapperStorePath == null)) {
+                throw new InvalidConfigValueException("An invocation on the cluster must have wrapper store path set");
             }
 
-            if (distDirection.anyDirection && settings.anyDirection) {
+            Direction direction = Direction.parse(distResolver.get("wrap", "nop"));
+            if (direction.anyDirection) {
+                StreamResolver dsResolver = new StreamResolver(taskConfig.dataStreams);
+
                 List<Tuple3<String, String, String>> paths = new ArrayList<>();
 
-                if (distDirection.toCluster && settings.toCluster) {
+                if (direction.toCluster) {
                     for (String sink : taskConfig.sink) {
-                        paths.add(new Tuple3<>(sink, dsResolver.inputPath(sink), settings.inputDir + "/" + sink));
+                        paths.add(new Tuple3<>(sink, dsResolver.inputPath(sink), dsResolver.inputPath(Constants.DEFAULT_DS) + "/" + sink));
                     }
                 }
 
-                if (distDirection.fromCluster && settings.fromCluster) {
-                    if (settings.wrapperStorePath != null) {
+                if (direction.fromCluster) {
+                    if (wrapperStorePath != null) {
                         final char _delimiter = dsResolver.inputDelimiter(Constants.DEFAULT_DS);
 
-                        Map<String, String> wrapperStore = context.textFile(settings.wrapperStorePath + "/outputs/part-00000")
+                        Map<String, String> wrapperStore = context.textFile(wrapperStorePath + "/outputs/part-00000")
                                 .mapPartitionsToPair(it -> {
                                     List<Tuple2<String, String>> ret = new ArrayList<>();
 
@@ -120,12 +122,7 @@ public class Main {
                         }
                     } else {
                         for (String tee : taskConfig.tees) {
-                            if (tee.endsWith("*")) {
-                                throw new InvalidConfigValueException("A call of configuration with wildcard task.tee.output must" +
-                                        " have wrapper store path set");
-                            }
-
-                            paths.add(new Tuple3<>(tee, settings.outputDir + "/" + tee, dsResolver.outputPath(tee)));
+                            paths.add(new Tuple3<>(tee, dsResolver.outputPath(Constants.DEFAULT_DS) + "/" + tee, dsResolver.outputPath(tee)));
                         }
                     }
                 }

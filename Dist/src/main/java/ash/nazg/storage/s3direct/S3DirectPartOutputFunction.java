@@ -86,6 +86,8 @@ public class S3DirectPartOutputFunction extends PartOutputFunction {
             for (byte[] buffer = new byte[BUFFER_SIZE]; (len = inputStream.read(buffer)) > 0; ) {
                 outputStream.write(buffer, 0, len);
             }
+            outputStream.close();
+            tmpFs.delete(partPath, false);
 
             return null;
         } else {
