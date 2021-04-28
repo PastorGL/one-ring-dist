@@ -17,8 +17,8 @@ import ash.nazg.storage.hadoop.HadoopInput;
 import ash.nazg.storage.hadoop.HadoopOutput;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
@@ -36,13 +36,12 @@ public class Main {
 
     public static void main(String[] args) {
         TaskWrapperConfigBuilder configBuilder = new TaskWrapperConfigBuilder();
-        configBuilder.addRequiredOption("c", "config", true, "Config file");
-        configBuilder.addRequiredOption("t", "tmpDir", true, "Location for temporary files");
-        configBuilder.addOption("d", "direction", true, "Copy direction. Can be 'from', 'to', or 'nop' to just validate the config file and exit");
+        configBuilder.addOption("t", "tmpDir", true, "Location for temporary files");
+        configBuilder.addRequiredOption("d", "direction", true, "Copy direction. Can be 'from', 'to', or 'nop' to just validate the config file and exit");
 
         JavaSparkContext context = null;
         try {
-            configBuilder.setCommandLine(args);
+            configBuilder.setCommandLine(args, "Dist");
 
             SparkConf sparkConf = new SparkConf()
                     .setAppName("One Ring Dist")
@@ -68,12 +67,11 @@ public class Main {
             context = new JavaSparkContext(sparkConf);
             context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
-            TaskDefinitionLanguage.Task taskConfig = configBuilder.build(context, local);
-            configBuilder.foreignLayerVariable(taskConfig, "dist.wrap", "d");
-            configBuilder.foreignLayerVariable(taskConfig, "dist.store", "S");
-            configBuilder.foreignLayerVariable(taskConfig, "dist.tmp", "t");
+            TaskDefinitionLanguage.Task config = configBuilder.build(context);
+            configBuilder.foreignLayerVariable(config, "dist.store", "S");
+            configBuilder.foreignLayerVariable(config, "dist.tmp", "t");
 
-            TaskDefinitionLanguage.Definitions props = taskConfig.foreignLayer(Constants.DIST_LAYER);
+            TaskDefinitionLanguage.Definitions props = config.foreignLayer(Constants.DIST_LAYER);
             if (!props.containsKey("tmp")) {
                 props.put("tmp", local ? System.getProperty("java.io.tmpdir") : "hdfs:///tmp");
             }
@@ -84,19 +82,36 @@ public class Main {
                 throw new InvalidConfigValueException("An invocation on the cluster must have wrapper store path set");
             }
 
-            Direction direction = Direction.parse(distResolver.get("wrap", "nop"));
-            if (direction.anyDirection) {
-                StreamResolver dsResolver = new StreamResolver(taskConfig.dataStreams);
+            Direction taskDirection = Direction.parse(distResolver.get("wrap", "nop"));
+            Direction distDirection = Direction.parse(configBuilder.getOptionValue("d"));
+            if (taskDirection.anyDirection && distDirection.anyDirection) {
+                TaskDefinitionLanguage.DataStream defaultDs = config.dataStreams.get(Constants.DEFAULT_DS);
+                if (configBuilder.hasOption("i")) {
+                    defaultDs.input.path = configBuilder.getOptionValue("i");
+                } else if (StringUtils.isEmpty(defaultDs.input.path)) {
+                    defaultDs.input.path = local ? "." : "hdfs:///input";
+                }
+                if (configBuilder.hasOption("o")) {
+                    defaultDs.output.path = configBuilder.getOptionValue("o");
+                } else if (StringUtils.isEmpty(defaultDs.output.path)) {
+                    defaultDs.output.path = local ? "." : "hdfs:///output";
+                }
+
+                StreamResolver dsResolver = new StreamResolver(config.dataStreams);
 
                 List<Tuple3<String, String, String>> paths = new ArrayList<>();
 
-                if (direction.toCluster) {
-                    for (String sink : taskConfig.sink) {
-                        paths.add(new Tuple3<>(sink, dsResolver.inputPath(sink), dsResolver.inputPath(Constants.DEFAULT_DS) + "/" + sink));
+                if (taskDirection.toCluster && distDirection.toCluster) {
+                    for (String sink : config.sink) {
+                        String pathFrom = dsResolver.inputPath(sink);
+                        String pathTo = dsResolver.inputPath(Constants.DEFAULT_DS) + "/" + sink;
+                        if (!pathFrom.equals(pathTo)) {
+                            paths.add(new Tuple3<>(sink, pathFrom, pathTo));
+                        }
                     }
                 }
 
-                if (direction.fromCluster) {
+                if (taskDirection.fromCluster && distDirection.fromCluster) {
                     if (wrapperStorePath != null) {
                         final char _delimiter = dsResolver.inputDelimiter(Constants.DEFAULT_DS);
 
@@ -118,36 +133,44 @@ public class Main {
 
                         for (Map.Entry<String, String> entry : wrapperStore.entrySet()) {
                             String tee = entry.getKey();
-                            paths.add(new Tuple3<>(tee, entry.getValue(), dsResolver.outputPath(tee)));
+                            String pathFrom = entry.getValue();
+                            String pathTo = dsResolver.outputPath(tee);
+                            if (!pathTo.equals(pathFrom)) {
+                                paths.add(new Tuple3<>(tee, pathFrom, pathTo));
+                            }
                         }
                     } else {
-                        for (String tee : taskConfig.tees) {
-                            paths.add(new Tuple3<>(tee, dsResolver.outputPath(Constants.DEFAULT_DS) + "/" + tee, dsResolver.outputPath(tee)));
+                        for (String tee : config.tees) {
+                            String pathFrom = dsResolver.outputPath(Constants.DEFAULT_DS) + "/" + tee;
+                            String pathTo = dsResolver.outputPath(tee);
+                            if (!pathTo.equals(pathFrom)) {
+                                paths.add(new Tuple3<>(tee, pathFrom, pathTo));
+                            }
                         }
                     }
                 }
 
                 for (Tuple3<String, String, String> pathEntry : paths) {
-                    String ds = pathEntry._1();
+                    String dsName = pathEntry._1();
                     String pathFrom = pathEntry._2();
                     String pathTo = pathEntry._3();
 
                     Class<? extends InputAdapter> inputClass = Adapters.input(pathFrom);
                     InputAdapter inputAdapter = (inputClass == null) ? new HadoopInput() : inputClass.newInstance();
                     inputAdapter.initialize(context);
-                    inputAdapter.configure(ds, taskConfig);
+                    inputAdapter.configure(dsName, config);
                     JavaRDD rdd = inputAdapter.load(pathFrom);
 
                     Class<? extends OutputAdapter> outputClass = Adapters.output(pathTo);
                     OutputAdapter outputAdapter = (outputClass == null) ? new HadoopOutput() : outputClass.newInstance();
                     outputAdapter.initialize(context);
-                    outputAdapter.configure(ds, taskConfig);
+                    outputAdapter.configure(dsName, config);
                     outputAdapter.save(pathTo, rdd);
                 }
             }
         } catch (Exception ex) {
             if (ex instanceof ParseException) {
-                new HelpFormatter().printHelp("One Ring Dist", configBuilder.getOptions());
+                configBuilder.printHelp("Dist");
             } else {
                 LOG.error(ex.getMessage(), ex);
             }
