@@ -4,7 +4,6 @@
  */
 package ash.nazg.dist;
 
-import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.TaskWrapperConfigBuilder;
 import ash.nazg.config.tdl.Constants;
 import ash.nazg.config.tdl.LayerResolver;
@@ -77,11 +76,6 @@ public class Main {
             }
             LayerResolver distResolver = new LayerResolver(props);
 
-            String wrapperStorePath = distResolver.get("store");
-            if (!local && (wrapperStorePath == null)) {
-                throw new InvalidConfigValueException("An invocation on the cluster must have wrapper store path set");
-            }
-
             Direction taskDirection = Direction.parse(distResolver.get("wrap", "nop"));
             Direction distDirection = Direction.parse(configBuilder.getOptionValue("d"));
             if (taskDirection.anyDirection && distDirection.anyDirection) {
@@ -112,6 +106,8 @@ public class Main {
                 }
 
                 if (taskDirection.fromCluster && distDirection.fromCluster) {
+                    String wrapperStorePath = distResolver.get("store");
+
                     if (wrapperStorePath != null) {
                         final char _delimiter = dsResolver.inputDelimiter(Constants.DEFAULT_DS);
 
