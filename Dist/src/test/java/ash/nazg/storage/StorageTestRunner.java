@@ -54,36 +54,36 @@ public class StorageTestRunner implements AutoCloseable {
 
         StreamResolver dsResolver = new StreamResolver(taskConfig.dataStreams);
 
-        for (String sink : taskConfig.sink) {
-            String path = dsResolver.inputPath(sink);
+        for (String input : taskConfig.input) {
+            String path = dsResolver.inputPath(input);
 
             InputAdapter inputAdapter = Adapters.input(path).newInstance();
             inputAdapter.initialize(context);
-            inputAdapter.configure(sink, taskConfig);
-            result.put(sink, inputAdapter.load(path));
+            inputAdapter.configure(input, taskConfig);
+            result.put(input, inputAdapter.load(path));
         }
 
         new Interpreter(taskConfig, context).processTaskChain(result);
 
         Set<String> rddNames = result.keySet();
-        Set<String> teeNames = new HashSet<>();
-        for (String tee : taskConfig.tees) {
+        Set<String> outputNames = new HashSet<>();
+        for (String output : taskConfig.output) {
             for (String name : rddNames) {
-                if (name.equals(tee)) {
-                    teeNames.add(name);
+                if (name.equals(output)) {
+                    outputNames.add(name);
                 }
             }
         }
 
-        for (String teeName : teeNames) {
-            JavaRDDLike rdd = result.get(teeName);
+        for (String output : outputNames) {
+            JavaRDDLike rdd = result.get(output);
 
             if (rdd != null) {
-                String path = dsResolver.outputPath(teeName);
+                String path = dsResolver.outputPath(output);
 
                 OutputAdapter outputAdapter = Adapters.output(path).newInstance();
                 outputAdapter.initialize(context);
-                outputAdapter.configure(teeName, taskConfig);
+                outputAdapter.configure(output, taskConfig);
                 outputAdapter.save(path, (JavaRDD) rdd);
             }
         }

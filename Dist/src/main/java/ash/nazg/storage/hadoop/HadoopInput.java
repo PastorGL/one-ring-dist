@@ -25,9 +25,9 @@ import java.util.regex.Pattern;
 
 public class HadoopInput extends InputAdapter {
     protected int partCount;
-    protected String[] sinkSchema;
-    protected String[] sinkColumns;
-    protected char sinkDelimiter;
+    protected String[] inputSchema;
+    protected String[] dsColumns;
+    protected char dsDelimiter;
     protected int maxRecordSize;
 
     protected static final int DEFAULT_SIZE = 1024 * 1024;
@@ -40,9 +40,9 @@ public class HadoopInput extends InputAdapter {
 
     @Override
     protected void configure() throws InvalidConfigValueException {
-        sinkSchema = inputResolver.getArray("sink.schema." + name);
-        sinkColumns = dsResolver.rawInputColumns(name);
-        sinkDelimiter = dsResolver.inputDelimiter(name);
+        inputSchema = inputResolver.getArray("schema." + name);
+        dsColumns = dsResolver.rawInputColumns(name);
+        dsDelimiter = dsResolver.inputDelimiter(name);
 
         maxRecordSize = Integer.parseInt(inputResolver.get("max.record.size", String.valueOf(DEFAULT_SIZE)));
 
@@ -101,11 +101,11 @@ public class HadoopInput extends InputAdapter {
             groupSize = 1;
         }
 
-        List<List<String>> sinkParts = Lists.partition(discoveredFiles, groupSize);
+        List<List<String>> partNum = Lists.partition(discoveredFiles, groupSize);
 
-        FlatMapFunction<List<String>, Object> inputFunction = new InputFunction(sinkSchema, sinkColumns, sinkDelimiter, maxRecordSize);
+        FlatMapFunction<List<String>, Object> inputFunction = new InputFunction(inputSchema, dsColumns, dsDelimiter, maxRecordSize);
 
-        return context.parallelize(sinkParts, sinkParts.size())
+        return context.parallelize(partNum, partNum.size())
                 .flatMap(inputFunction);
     }
 }

@@ -69,12 +69,12 @@ public class S3DirectInput extends HadoopInput {
             groupSize = 1;
         }
 
-        List<List<String>> sinkParts = Lists.partition(discoveredFiles, groupSize);
+        List<List<String>> partNum = Lists.partition(discoveredFiles, groupSize);
 
-        FlatMapFunction<List<String>, Object> inputFunction = new S3DirectInputFunction(sinkSchema, sinkColumns, sinkDelimiter, maxRecordSize,
+        FlatMapFunction<List<String>, Object> inputFunction = new S3DirectInputFunction(inputSchema, dsColumns, dsDelimiter, maxRecordSize,
                 endpoint, region, accessKey, secretKey, bucket, tmpDir);
 
-        return context.parallelize(sinkParts, sinkParts.size())
+        return context.parallelize(partNum, partNum.size())
                 .flatMap(inputFunction);
     }
 }

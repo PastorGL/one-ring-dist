@@ -102,11 +102,11 @@ public class Main {
                 List<Tuple3<String, String, String>> paths = new ArrayList<>();
 
                 if (taskDirection.toCluster && distDirection.toCluster) {
-                    for (String sink : config.sink) {
-                        String pathFrom = dsResolver.inputPath(sink);
-                        String pathTo = dsResolver.inputPath(Constants.DEFAULT_DS) + "/" + sink;
+                    for (String input : config.input) {
+                        String pathFrom = dsResolver.inputPath(input);
+                        String pathTo = dsResolver.inputPath(Constants.DEFAULT_DS) + "/" + input;
                         if (!pathFrom.equals(pathTo)) {
-                            paths.add(new Tuple3<>(sink, pathFrom, pathTo));
+                            paths.add(new Tuple3<>(input, pathFrom, pathTo));
                         }
                     }
                 }
@@ -132,19 +132,19 @@ public class Main {
                                 .collectAsMap();
 
                         for (Map.Entry<String, String> entry : wrapperStore.entrySet()) {
-                            String tee = entry.getKey();
+                            String output = entry.getKey();
                             String pathFrom = entry.getValue();
-                            String pathTo = dsResolver.outputPath(tee);
+                            String pathTo = dsResolver.outputPath(output);
                             if (!pathTo.equals(pathFrom)) {
-                                paths.add(new Tuple3<>(tee, pathFrom, pathTo));
+                                paths.add(new Tuple3<>(output, pathFrom, pathTo));
                             }
                         }
                     } else {
-                        for (String tee : config.tees) {
-                            String pathFrom = dsResolver.outputPath(Constants.DEFAULT_DS) + "/" + tee;
-                            String pathTo = dsResolver.outputPath(tee);
+                        for (String output : config.output) {
+                            String pathFrom = dsResolver.outputPath(Constants.DEFAULT_DS) + "/" + output;
+                            String pathTo = dsResolver.outputPath(output);
                             if (!pathTo.equals(pathFrom)) {
-                                paths.add(new Tuple3<>(tee, pathFrom, pathTo));
+                                paths.add(new Tuple3<>(output, pathFrom, pathTo));
                             }
                         }
                     }
