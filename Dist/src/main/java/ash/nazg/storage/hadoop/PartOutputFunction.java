@@ -86,6 +86,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Text>, It
 
             FileSystem outputFs = partPath.getFileSystem(conf);
             outputFs.setVerifyChecksum(false);
+            outputFs.setWriteChecksum(false);
             OutputStream outputStream = outputFs.create(partPath);
 
             return writeToTextFile(conf, outputStream);
