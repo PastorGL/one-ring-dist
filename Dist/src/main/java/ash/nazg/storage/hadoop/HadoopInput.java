@@ -94,6 +94,9 @@ public class HadoopInput extends InputAdapter {
                 })
                 .collect();
 
+        System.out.println("Discovered Hadoop FileSystem files:");
+        discoveredFiles.forEach(System.out::println);
+
         int countOfFiles = discoveredFiles.size();
 
         int groupSize = countOfFiles / partCount;

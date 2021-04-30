@@ -62,6 +62,9 @@ public class S3DirectInput extends HadoopInput {
                 .map(S3ObjectSummary::getKey)
                 .collect(Collectors.toList());
 
+        System.out.println("Discovered S3 objects:");
+        discoveredFiles.forEach(System.out::println);
+
         int countOfFiles = discoveredFiles.size();
 
         int groupSize = countOfFiles / partCount;
