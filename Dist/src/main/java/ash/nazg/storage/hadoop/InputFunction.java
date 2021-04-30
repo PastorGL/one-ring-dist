@@ -15,7 +15,6 @@ import org.apache.parquet.hadoop.util.HadoopInputFile;
 import org.apache.parquet.schema.MessageType;
 import org.apache.spark.api.java.function.FlatMapFunction;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
@@ -36,26 +35,26 @@ public class InputFunction implements FlatMapFunction<List<String>, Object> {
 
     @Override
     public Iterator<Object> call(List<String> src) {
-            ArrayList<Object> ret = new ArrayList<>();
+        ArrayList<Object> ret = new ArrayList<>();
 
-            Configuration conf = new Configuration();
-            try {
-                for (String inputFile : src) {
-                    InputStream inputStream = decorateInputStream(conf, inputFile);
+        Configuration conf = new Configuration();
+        try {
+            for (String inputFile : src) {
+                InputStream inputStream = decorateInputStream(conf, inputFile);
 
-                    int len;
-                    for (byte[] buffer = new byte[_bufferSize]; (len = inputStream.read(buffer)) > 0; ) {
-                        String str = new String(buffer, 0, len, StandardCharsets.UTF_8);
-                        ret.add(str);
-                    }
+                int len;
+                for (byte[] buffer = new byte[_bufferSize]; (len = inputStream.read(buffer)) > 0; ) {
+                    String str = new String(buffer, 0, len, StandardCharsets.UTF_8);
+                    ret.add(str);
                 }
-            } catch (Exception e) {
-                System.err.println("Exception while reading records: " + e.getMessage());
-                e.printStackTrace(System.err);
-                System.exit(14);
             }
+        } catch (Exception e) {
+            System.err.println("Exception while reading records: " + e.getMessage());
+            e.printStackTrace(System.err);
+            System.exit(14);
+        }
 
-            return ret.iterator();
+        return ret.iterator();
     }
 
     protected InputStream decorateInputStream(Configuration conf, String inputFile) throws Exception {
@@ -101,7 +100,7 @@ public class InputFunction implements FlatMapFunction<List<String>, Object> {
         return new ParquetRecordInputStream(reader, fieldOrder, _delimiter);
     }
 
-    protected InputStream getTextInputStream(Configuration conf, InputStream inputStream, String codec) throws InstantiationException, IllegalAccessException, IOException {
+    protected InputStream getTextInputStream(Configuration conf, InputStream inputStream, String codec) throws Exception {
         codec = codec.toLowerCase();
         if (FileStorage.CODECS.containsKey(codec)) {
             Class<? extends CompressionCodec> codecClass = FileStorage.CODECS.get(codec);
