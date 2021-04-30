@@ -6,6 +6,7 @@ import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.SimpleGroup;
@@ -27,7 +28,7 @@ import java.util.List;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 
-public class PartOutputFunction implements Function2<Integer, Iterator<Object>, Iterator<Object>> {
+public class PartOutputFunction implements Function2<Integer, Iterator<Text>, Iterator<Void>> {
     protected final String _name;
     protected final String outputPath;
     protected final String codec;
@@ -43,7 +44,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Object>, 
     }
 
     @Override
-    public Iterator<Object> call(Integer idx, Iterator<Object> it) {
+    public Iterator<Void> call(Integer idx, Iterator<Text> it) {
         Configuration conf = new Configuration();
 
         try {
@@ -51,9 +52,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Object>, 
 
             if (os != null) {
                 while (it.hasNext()) {
-                    String line = it.next() + "\n";
-
-                    os.write(line.getBytes(StandardCharsets.UTF_8));
+                    os.write(String.valueOf(it.next()).getBytes(StandardCharsets.UTF_8));
                 }
 
                 os.close();
@@ -67,7 +66,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Object>, 
         return Collections.emptyIterator();
     }
 
-    protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<Object> it) throws Exception {
+    protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<Text> it) throws Exception {
         String suffix = FileStorage.suffix(outputPath);
 
         if ("parquet".equalsIgnoreCase(suffix)) {
@@ -93,7 +92,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Object>, 
         }
     }
 
-    protected void writeToParquetFile(Configuration conf, Path partPath, Iterator<Object> it) throws Exception {
+    protected void writeToParquetFile(Configuration conf, Path partPath, Iterator<Text> it) throws Exception {
         List<Type> types = new ArrayList<>();
         for (String col : _columns) {
             types.add(Types.primitive(BINARY, Type.Repetition.REQUIRED).as(stringType()).named(col));

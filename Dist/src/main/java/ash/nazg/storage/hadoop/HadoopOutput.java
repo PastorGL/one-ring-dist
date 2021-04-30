@@ -8,6 +8,7 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.OutputAdapter;
 import ash.nazg.storage.StorageAdapter;
+import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function2;
 
@@ -32,9 +33,9 @@ public class HadoopOutput extends OutputAdapter {
     }
 
     @Override
-    public void save(String path, JavaRDD rdd) {
-        Function2<Integer, Iterator<Object>, Iterator<Object>> outputFunction = new PartOutputFunction(name, path, codec, columns, delimiter);
+    public void save(String path, JavaRDD<Text> rdd) {
+        Function2<Integer, Iterator<Text>, Iterator<Void>> outputFunction = new PartOutputFunction(name, path, codec, columns, delimiter);
 
-        ((JavaRDD<Object>) rdd).mapPartitionsWithIndex(outputFunction, true).count();
+        rdd.mapPartitionsWithIndex(outputFunction, true).count();
     }
 }

@@ -10,9 +10,11 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.Lists;
+import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -72,9 +74,10 @@ public class S3DirectInput extends HadoopInput {
             groupSize = 1;
         }
 
-        List<List<String>> partNum = Lists.partition(discoveredFiles, groupSize);
+        List<List<String>> partNum = new ArrayList<>();
+        Lists.partition(discoveredFiles, groupSize).forEach(p -> partNum.add(new ArrayList<>(p)));
 
-        FlatMapFunction<List<String>, Object> inputFunction = new S3DirectInputFunction(inputSchema, dsColumns, dsDelimiter, maxRecordSize,
+        FlatMapFunction<List<String>, Text> inputFunction = new S3DirectInputFunction(inputSchema, dsColumns, dsDelimiter, maxRecordSize,
                 endpoint, region, accessKey, secretKey, bucket, tmpDir);
 
         return context.parallelize(partNum, partNum.size())

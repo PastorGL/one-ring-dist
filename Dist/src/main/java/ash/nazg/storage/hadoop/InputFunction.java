@@ -4,6 +4,7 @@ import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.format.converter.ParquetMetadataConverter;
@@ -20,7 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.IntStream;
 
-public class InputFunction implements FlatMapFunction<List<String>, Object> {
+public class InputFunction implements FlatMapFunction<List<String>, Text> {
     final protected String[] _schema;
     final protected String[] _columns;
     final protected char _delimiter;
@@ -34,8 +35,8 @@ public class InputFunction implements FlatMapFunction<List<String>, Object> {
     }
 
     @Override
-    public Iterator<Object> call(List<String> src) {
-        ArrayList<Object> ret = new ArrayList<>();
+    public Iterator<Text> call(List<String> src) {
+        ArrayList<Text> ret = new ArrayList<>();
 
         Configuration conf = new Configuration();
         try {
@@ -45,7 +46,7 @@ public class InputFunction implements FlatMapFunction<List<String>, Object> {
                 int len;
                 for (byte[] buffer = new byte[_bufferSize]; (len = inputStream.read(buffer)) > 0; ) {
                     String str = new String(buffer, 0, len, StandardCharsets.UTF_8);
-                    ret.add(str);
+                    ret.add(new Text(str));
                 }
             }
         } catch (Exception e) {

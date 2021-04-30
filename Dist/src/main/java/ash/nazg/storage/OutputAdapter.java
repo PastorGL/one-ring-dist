@@ -8,6 +8,7 @@ import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Constants;
 import ash.nazg.config.tdl.LayerResolver;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
+import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 
 public abstract class OutputAdapter extends StorageAdapter {
@@ -19,5 +20,5 @@ public abstract class OutputAdapter extends StorageAdapter {
         super.configure(name, taskConfig);
     }
 
-    public abstract void save(String path, JavaRDD rdd);
+    public abstract void save(String path, JavaRDD<Text> rdd);
 }

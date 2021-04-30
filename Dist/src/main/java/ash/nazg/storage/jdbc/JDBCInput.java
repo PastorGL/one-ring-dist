@@ -58,7 +58,7 @@ public class JDBCInput extends InputAdapter {
     }
 
     @Override
-    public JavaRDD load(String path) {
+    public JavaRDD<Text> load(String path) {
         final char _inputDelimiter = delimiter;
 
         return new JdbcRDD<Object[]>(

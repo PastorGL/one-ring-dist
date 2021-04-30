@@ -8,6 +8,7 @@ import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.OutputAdapter;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
+import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.sparkproject.guava.collect.Iterators;
 
@@ -52,7 +53,7 @@ public class JDBCOutput extends OutputAdapter {
     }
 
     @Override
-    public void save(String path, JavaRDD rdd) {
+    public void save(String path, JavaRDD<Text> rdd) {
         final String _dbDriver = dbDriver;
         final String _dbUrl = dbUrl;
         final String _dbUser = dbUser;
@@ -64,7 +65,7 @@ public class JDBCOutput extends OutputAdapter {
         final String[] _cols = cols;
         final String _table = path.split(":", 2)[1];
 
-        ((JavaRDD<Object>) rdd).mapPartitions(partition -> {
+        rdd.mapPartitions(partition -> {
             Connection conn = null;
             PreparedStatement ps = null;
             try {

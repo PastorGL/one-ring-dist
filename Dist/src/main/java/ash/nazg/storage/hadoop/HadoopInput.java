@@ -14,6 +14,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import scala.Tuple2;
@@ -58,7 +59,7 @@ public class HadoopInput extends InputAdapter {
     }
 
     @Override
-    public JavaRDD load(String globPattern) {
+    public JavaRDD<Text> load(String globPattern) {
         // path, regex
         List<Tuple2<String, String>> splits = FileStorage.srcDestGroup(globPattern);
 
@@ -104,9 +105,10 @@ public class HadoopInput extends InputAdapter {
             groupSize = 1;
         }
 
-        List<List<String>> partNum = Lists.partition(discoveredFiles, groupSize);
+        List<List<String>> partNum = new ArrayList<>();
+        Lists.partition(discoveredFiles, groupSize).forEach(p -> partNum.add(new ArrayList<>(p)));
 
-        FlatMapFunction<List<String>, Object> inputFunction = new InputFunction(inputSchema, dsColumns, dsDelimiter, maxRecordSize);
+        FlatMapFunction<List<String>, Text> inputFunction = new InputFunction(inputSchema, dsColumns, dsDelimiter, maxRecordSize);
 
         return context.parallelize(partNum, partNum.size())
                 .flatMap(inputFunction);

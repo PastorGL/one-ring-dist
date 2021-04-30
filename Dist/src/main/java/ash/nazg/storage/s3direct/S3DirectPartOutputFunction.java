@@ -10,6 +10,7 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.Text;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -39,7 +40,7 @@ public class S3DirectPartOutputFunction extends PartOutputFunction {
     }
 
     @Override
-    protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<Object> it) throws Exception {
+    protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<Text> it) throws Exception {
         String suffix = FileStorage.suffix(outputPath);
 
         Matcher m = S3DirectStorage.PATTERN.matcher(outputPath);

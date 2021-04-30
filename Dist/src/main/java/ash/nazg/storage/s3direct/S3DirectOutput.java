@@ -7,6 +7,7 @@ package ash.nazg.storage.s3direct;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Description;
 import ash.nazg.storage.hadoop.HadoopOutput;
+import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.function.Function2;
 
@@ -45,10 +46,10 @@ public class S3DirectOutput extends HadoopOutput {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void save(String path, JavaRDD rdd) {
-        Function2<Integer, Iterator<Object>, Iterator<Object>> outputFunction = new S3DirectPartOutputFunction(name, path, codec, columns, delimiter,
+    public void save(String path, JavaRDD<Text> rdd) {
+        Function2<Integer, Iterator<Text>, Iterator<Void>> outputFunction = new S3DirectPartOutputFunction(name, path, codec, columns, delimiter,
                 endpoint, region, accessKey, secretKey, tmpDir, contentType);
 
-        ((JavaRDD<Object>) rdd).mapPartitionsWithIndex(outputFunction, true).count();
+        rdd.mapPartitionsWithIndex(outputFunction, true).count();
     }
 }
