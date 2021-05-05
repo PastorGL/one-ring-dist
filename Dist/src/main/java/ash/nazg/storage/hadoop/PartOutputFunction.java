@@ -70,7 +70,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Text>, It
         String suffix = FileStorage.suffix(outputPath);
 
         if ("parquet".equalsIgnoreCase(suffix)) {
-            String partName = outputPath.substring(0, outputPath.lastIndexOf("/")) + "/" + String.format("part-%05d", idx)
+            String partName = outputPath.substring(0, outputPath.lastIndexOf(".")) + "/" + String.format("part-%05d", idx)
                     + (FileStorage.CODECS.containsKey(codec) ? "." + codec : "");
 
             partName += ".parquet";
