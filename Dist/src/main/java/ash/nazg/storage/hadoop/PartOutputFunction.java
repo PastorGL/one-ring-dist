@@ -71,9 +71,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Text>, It
 
         if ("parquet".equalsIgnoreCase(suffix)) {
             String partName = outputPath.substring(0, outputPath.lastIndexOf(".")) + "/" + String.format("part-%05d", idx)
-                    + (FileStorage.CODECS.containsKey(codec) ? "." + codec : "");
-
-            partName += ".parquet";
+                    + (FileStorage.CODECS.containsKey(codec) ? "." + codec : "") + ".parquet";
 
             writeToParquetFile(conf, new Path(partName), it);
 
