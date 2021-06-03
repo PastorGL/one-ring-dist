@@ -9,17 +9,20 @@ import ash.nazg.config.tdl.Constants;
 import ash.nazg.config.tdl.LayerResolver;
 import ash.nazg.config.tdl.StreamResolver;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
+import ash.nazg.storage.metadata.AdapterMeta;
 import org.apache.spark.api.java.JavaSparkContext;
 
-import java.util.regex.Pattern;
-
 public abstract class StorageAdapter {
-    public static final Pattern PATH_PATTERN = Pattern.compile("^([^:]+:/*[^/]+)/(.+)");
+    public final AdapterMeta meta;
 
     protected JavaSparkContext context;
     protected StreamResolver dsResolver;
     protected LayerResolver distResolver;
-    protected String name;
+    protected String dsName;
+
+    public StorageAdapter() {
+        this.meta = meta();
+    }
 
     public void initialize(JavaSparkContext ctx) {
         this.context = ctx;
@@ -28,12 +31,12 @@ public abstract class StorageAdapter {
     protected void configure(String name, TaskDefinitionLanguage.Task taskConfig) throws InvalidConfigValueException {
         this.dsResolver = new StreamResolver(taskConfig.dataStreams);
         this.distResolver = new LayerResolver(taskConfig.foreignLayer(Constants.DIST_LAYER));
-        this.name = name;
+        this.dsName = name;
 
         configure();
     }
 
-    public abstract Pattern proto();
+    protected abstract AdapterMeta meta();
 
     abstract protected void configure() throws InvalidConfigValueException;
 }

@@ -151,13 +151,13 @@ public class Main {
                     String pathFrom = pathEntry._2();
                     String pathTo = pathEntry._3();
 
-                    Class<? extends InputAdapter> inputClass = Adapters.input(pathFrom);
+                    Class<? extends InputAdapter> inputClass = Adapters.inputClass(pathFrom);
                     InputAdapter inputAdapter = (inputClass == null) ? new HadoopInput() : inputClass.newInstance();
                     inputAdapter.initialize(context);
                     inputAdapter.configure(dsName, config);
                     JavaRDD rdd = inputAdapter.load(pathFrom);
 
-                    Class<? extends OutputAdapter> outputClass = Adapters.output(pathTo);
+                    Class<? extends OutputAdapter> outputClass = Adapters.outputClass(pathTo);
                     OutputAdapter outputAdapter = (outputClass == null) ? new HadoopOutput() : outputClass.newInstance();
                     outputAdapter.initialize(context);
                     outputAdapter.configure(dsName, config);
