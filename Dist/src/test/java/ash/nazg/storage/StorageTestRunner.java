@@ -37,7 +37,7 @@ public class StorageTestRunner implements AutoCloseable {
                 String rootResourcePath = getClass().getResource("/").getPath();
                 for (Object p : source.keySet()) {
                     String prop = (String) p;
-                    if (prop.startsWith(Constants.DS_INPUT_PATH_PREFIX)) {
+                    if (prop.startsWith(Constants.INPUT_LAYER + "." + Constants.PATH_PREFIX)) {
                         source.setProperty(prop, rootResourcePath + source.get(p));
                     }
                 }
@@ -52,10 +52,10 @@ public class StorageTestRunner implements AutoCloseable {
     public Map<String, JavaRDDLike> go() throws Exception {
         HashMap<String, JavaRDDLike> result = new HashMap<>();
 
-        StreamResolver dsResolver = new StreamResolver(taskConfig.dataStreams);
+        InOutResolver ioResolver = new InOutResolver(taskConfig);
 
         for (String input : taskConfig.input) {
-            String path = dsResolver.inputPath(input);
+            String path = ioResolver.inputPath(input);
 
             InputAdapter inputAdapter = Adapters.inputClass(path).newInstance();
             inputAdapter.initialize(context);
@@ -79,7 +79,7 @@ public class StorageTestRunner implements AutoCloseable {
             JavaRDDLike rdd = result.get(output);
 
             if (rdd != null) {
-                String path = dsResolver.outputPath(output);
+                String path = ioResolver.outputPath(output);
 
                 OutputAdapter outputAdapter = Adapters.outputClass(path).newInstance();
                 outputAdapter.initialize(context);

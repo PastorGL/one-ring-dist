@@ -68,13 +68,13 @@ public class JDBCInput extends InputAdapter {
     }
 
     @Override
-    public JavaRDD<Text> load(String path) {
+    public JavaRDD<Text> load(String query) {
         final char _inputDelimiter = delimiter;
 
         return new JdbcRDD<Object[]>(
                 ctx.sc(),
                 new DbConnection(dbDriver, dbUrl, dbUser, dbPassword),
-                path.split(":", 2)[1],
+                query.split(":", 2)[1],
                 0, Math.max(partCount, 0),
                 Math.max(partCount, 1),
                 new RowMapper(),

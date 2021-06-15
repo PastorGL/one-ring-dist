@@ -6,29 +6,24 @@ package ash.nazg.dist;
 
 import ash.nazg.config.TaskWrapperConfigBuilder;
 import ash.nazg.config.tdl.Constants;
+import ash.nazg.config.tdl.InOutResolver;
 import ash.nazg.config.tdl.LayerResolver;
-import ash.nazg.config.tdl.StreamResolver;
 import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import ash.nazg.storage.Adapters;
 import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.OutputAdapter;
 import ash.nazg.storage.hadoop.HadoopInput;
 import ash.nazg.storage.hadoop.HadoopOutput;
-import com.opencsv.CSVParser;
-import com.opencsv.CSVParserBuilder;
 import org.apache.commons.cli.ParseException;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.api.java.JavaSparkContext;
-import scala.Tuple2;
 import scala.Tuple3;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class Main {
     private static final Logger LOG = Logger.getLogger(Main.class);
@@ -67,7 +62,6 @@ public class Main {
             context.hadoopConfiguration().set(FileInputFormat.INPUT_DIR_RECURSIVE, Boolean.TRUE.toString());
 
             TaskDefinitionLanguage.Task config = configBuilder.build(context);
-            configBuilder.foreignLayerVariable(config, "dist.store", "S");
             configBuilder.foreignLayerVariable(config, "dist.tmp", "t");
 
             TaskDefinitionLanguage.Definitions props = config.foreignLayer(Constants.DIST_LAYER);
@@ -79,26 +73,14 @@ public class Main {
             Direction taskDirection = Direction.parse(distResolver.get("wrap", "nop"));
             Direction distDirection = Direction.parse(configBuilder.getOptionValue("d"));
             if (taskDirection.anyDirection && distDirection.anyDirection) {
-                TaskDefinitionLanguage.DataStream defaultDs = config.dataStreams.get(Constants.DEFAULT_DS);
-                if (configBuilder.hasOption("i")) {
-                    defaultDs.input.path = configBuilder.getOptionValue("i");
-                } else if (StringUtils.isEmpty(defaultDs.input.path)) {
-                    defaultDs.input.path = local ? "." : "hdfs:///input";
-                }
-                if (configBuilder.hasOption("o")) {
-                    defaultDs.output.path = configBuilder.getOptionValue("o");
-                } else if (StringUtils.isEmpty(defaultDs.output.path)) {
-                    defaultDs.output.path = local ? "." : "hdfs:///output";
-                }
-
-                StreamResolver dsResolver = new StreamResolver(config.dataStreams);
+                InOutResolver ioResolver = new InOutResolver(config);
 
                 List<Tuple3<String, String, String>> paths = new ArrayList<>();
 
                 if (taskDirection.toCluster && distDirection.toCluster) {
                     for (String input : config.input) {
-                        String pathFrom = dsResolver.inputPath(input);
-                        String pathTo = dsResolver.inputPath(Constants.DEFAULT_DS) + "/" + input;
+                        String pathFrom = ioResolver.inputPath(input);
+                        String pathTo = ioResolver.inputPathNonLocal(input);
                         if (!pathFrom.equals(pathTo)) {
                             paths.add(new Tuple3<>(input, pathFrom, pathTo));
                         }
@@ -109,36 +91,20 @@ public class Main {
                     String wrapperStorePath = distResolver.get("store");
 
                     if (wrapperStorePath != null) {
-                        final char _delimiter = dsResolver.inputDelimiter(Constants.DEFAULT_DS);
+                        List<String> wrapperStore = context.textFile(wrapperStorePath + "/outputs/part-00000")
+                                .collect();
 
-                        Map<String, String> wrapperStore = context.textFile(wrapperStorePath + "/outputs/part-00000")
-                                .mapPartitionsToPair(it -> {
-                                    List<Tuple2<String, String>> ret = new ArrayList<>();
-
-                                    CSVParser parser = new CSVParserBuilder().withSeparator(_delimiter).build();
-                                    while (it.hasNext()) {
-                                        String l = it.next();
-
-                                        String[] row = parser.parseLine(l);
-                                        ret.add(new Tuple2<>(row[0], row[1]));
-                                    }
-
-                                    return ret.iterator();
-                                })
-                                .collectAsMap();
-
-                        for (Map.Entry<String, String> entry : wrapperStore.entrySet()) {
-                            String output = entry.getKey();
-                            String pathFrom = entry.getValue();
-                            String pathTo = dsResolver.outputPath(output);
+                        for (String output : wrapperStore) {
+                            String pathFrom = ioResolver.outputPathNonLocal(output);
+                            String pathTo = ioResolver.outputPath(output);
                             if (!pathTo.equals(pathFrom)) {
                                 paths.add(new Tuple3<>(output, pathFrom, pathTo));
                             }
                         }
                     } else {
                         for (String output : config.output) {
-                            String pathFrom = dsResolver.outputPath(Constants.DEFAULT_DS) + "/" + output;
-                            String pathTo = dsResolver.outputPath(output);
+                            String pathFrom = ioResolver.outputPathNonLocal(output);
+                            String pathTo = ioResolver.outputPath(output);
                             if (!pathTo.equals(pathFrom)) {
                                 paths.add(new Tuple3<>(output, pathFrom, pathTo));
                             }

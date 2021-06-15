@@ -62,8 +62,8 @@ public class S3DirectInput extends HadoopInput {
     }
 
     @Override
-    public JavaRDD load(String path) {
-        Matcher m = Pattern.compile(S3DirectStorage.PATH_PATTERN).matcher(path);
+    public JavaRDD load(String s3path) {
+        Matcher m = Pattern.compile(S3DirectStorage.PATH_PATTERN).matcher(s3path);
         m.matches();
         String bucket = m.group(1);
         String keyPrefix = m.group(2);
