@@ -15,7 +15,7 @@ public abstract class OutputAdapter extends StorageAdapter {
     protected AdapterResolver outputResolver;
 
     public void configure(String name, TaskDefinitionLanguage.Task taskConfig) throws InvalidConfigValueException {
-        outputResolver = new AdapterResolver(dsName, meta, taskConfig.foreignLayer(Constants.OUTPUT_LAYER));
+        outputResolver = new AdapterResolver(name, meta, taskConfig.foreignLayer(Constants.OUTPUT_LAYER));
 
         super.configure(name, taskConfig);
     }

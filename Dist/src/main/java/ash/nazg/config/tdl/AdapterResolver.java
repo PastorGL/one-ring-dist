@@ -19,17 +19,8 @@ public class AdapterResolver {
     }
 
     public <T> T definition(String key) {
-        key = key + "." + dsName;
-
         DefinitionMeta defMeta = meta.settings.get(key);
-        if (defMeta == null) {
-            for (String def : meta.settings.keySet()) {
-                if (key.startsWith(def)) {
-                    defMeta = meta.settings.get(def);
-                    break;
-                }
-            }
-        }
+
         if (defMeta == null) {
             throw new InvalidConfigValueException("Invalid property '" + key + "' of adapter '" + meta.name + "'");
         }
@@ -41,9 +32,9 @@ public class AdapterResolver {
             throw new InvalidConfigValueException("Cannot resolve class '" + defMeta.type + "' for property '" + key + "' of adapter '" + meta.name + "'");
         }
 
-        String value = config.get(key);
+        String value = config.get(key + "." + dsName);
         if (value == null || value.isEmpty()) {
-            return (T) defMeta.defaults;
+            value = defMeta.defaults;
         }
 
         value = config.task.value(value);

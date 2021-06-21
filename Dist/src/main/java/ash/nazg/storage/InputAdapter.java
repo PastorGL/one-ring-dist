@@ -17,7 +17,7 @@ public abstract class InputAdapter extends StorageAdapter {
     public abstract JavaRDD<Text> load(String path) throws Exception;
 
     public void configure(String name, TaskDefinitionLanguage.Task taskConfig) throws InvalidConfigValueException {
-        inputResolver = new AdapterResolver(dsName, meta, taskConfig.foreignLayer(Constants.INPUT_LAYER));
+        inputResolver = new AdapterResolver(name, meta, taskConfig.foreignLayer(Constants.INPUT_LAYER));
 
         super.configure(name, taskConfig);
     }
