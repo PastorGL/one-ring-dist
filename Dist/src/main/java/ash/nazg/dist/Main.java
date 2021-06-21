@@ -95,7 +95,7 @@ public class Main {
                                 .collect();
 
                         for (String output : wrapperStore) {
-                            String pathFrom = ioResolver.outputPathNonLocal(output);
+                            String pathFrom = ioResolver.outputPathNonLocal(output) + "/*";
                             String pathTo = ioResolver.outputPath(output);
                             if (!pathTo.equals(pathFrom)) {
                                 paths.add(new Tuple3<>(output, pathFrom, pathTo));
@@ -103,7 +103,7 @@ public class Main {
                         }
                     } else {
                         for (String output : config.output) {
-                            String pathFrom = ioResolver.outputPathNonLocal(output);
+                            String pathFrom = ioResolver.outputPathNonLocal(output) + "/*";
                             String pathTo = ioResolver.outputPath(output);
                             if (!pathTo.equals(pathFrom)) {
                                 paths.add(new Tuple3<>(output, pathFrom, pathTo));
