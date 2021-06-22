@@ -5,15 +5,14 @@
 package ash.nazg.dist;
 
 import ash.nazg.config.TaskWrapperConfigBuilder;
-import ash.nazg.config.tdl.Constants;
-import ash.nazg.config.tdl.InOutResolver;
-import ash.nazg.config.tdl.LayerResolver;
-import ash.nazg.config.tdl.TaskDefinitionLanguage;
+import ash.nazg.config.tdl.*;
 import ash.nazg.storage.Adapters;
 import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.OutputAdapter;
 import ash.nazg.storage.hadoop.HadoopInput;
 import ash.nazg.storage.hadoop.HadoopOutput;
+import com.opencsv.CSVParser;
+import com.opencsv.CSVParserBuilder;
 import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.log4j.Logger;
@@ -91,14 +90,26 @@ public class Main {
                     String wrapperStorePath = distResolver.get("store");
 
                     if (wrapperStorePath != null) {
+                        StreamResolver dsResolver = new StreamResolver(config.dataStreams);
                         List<String> wrapperStore = context.textFile(wrapperStorePath + "/outputs/part-00000")
                                 .collect();
 
-                        for (String output : wrapperStore) {
-                            String pathFrom = ioResolver.outputPathNonLocal(output) + "/*";
-                            String pathTo = ioResolver.outputPath(output);
+                        final char outputsDelimiter = dsResolver.outputDelimiter(Constants.OUTPUTS_DS);
+                        CSVParser parser = new CSVParserBuilder().withSeparator(outputsDelimiter).build();
+                        for (String line : wrapperStore) {
+                            final String[] _output = parser.parseLine(String.valueOf(line));
+
+                            String pathFrom = ioResolver.outputPathNonLocal(_output[0]) + "/*";
+                            String pathTo = ioResolver.outputPath(_output[0]);
                             if (!pathTo.equals(pathFrom)) {
-                                paths.add(new Tuple3<>(output, pathFrom, pathTo));
+                                paths.add(new Tuple3<>(_output[0], pathFrom, pathTo));
+                                config.dataStreams.compute(_output[0], (k, ds) -> {
+                                    if (ds == null) {
+                                        ds = new TaskDefinitionLanguage.DataStream();
+                                    }
+                                    ds.input.partCount = _output[1];
+                                    return ds;
+                                });
                             }
                         }
                     } else {
