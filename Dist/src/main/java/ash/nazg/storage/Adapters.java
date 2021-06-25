@@ -25,13 +25,12 @@ public class Adapters {
     static {
         Map<String, AdapterInfo> inputs = new HashMap<>();
         Map<String, AdapterInfo> outputs = new HashMap<>();
-        Map<String, String> inPackages = new HashMap<>();
-        Map<String, String> outPackages = new HashMap<>();
+        Map<String, String> inputPackages = new HashMap<>();
+        Map<String, String> outputPackages = new HashMap<>();
 
         for (Map.Entry<String, String> pkg : RegisteredPackages.REGISTERED_PACKAGES.entrySet()) {
             try (ScanResult scanResult = new ClassGraph().enableClassInfo().acceptPackages(pkg.getKey()).scan()) {
-                ClassInfoList iaClasses = scanResult.getSubclasses(InputAdapter.class.getTypeName());
-                List<Class<?>> iaClassRefs = iaClasses.loadClasses();
+                List<Class<?>> iaClassRefs = scanResult.getSubclasses(InputAdapter.class.getTypeName()).loadClasses();
 
                 for (Class<?> iaClass : iaClassRefs) {
                     try {
@@ -47,11 +46,10 @@ public class Adapters {
                 }
 
                 if (!iaClassRefs.isEmpty()) {
-                    inPackages.put(pkg.getKey(), pkg.getValue());
+                    inputPackages.put(pkg.getKey(), pkg.getValue());
                 }
 
-                ClassInfoList oaClasses = scanResult.getSubclasses(OutputAdapter.class.getTypeName());
-                List<Class<?>> oaClassRefs = oaClasses.loadClasses();
+                List<Class<?>> oaClassRefs = scanResult.getSubclasses(OutputAdapter.class.getTypeName()).loadClasses();
 
                 for (Class<?> oaClass : oaClassRefs) {
                     try {
@@ -67,15 +65,15 @@ public class Adapters {
                 }
 
                 if (!oaClassRefs.isEmpty()) {
-                    outPackages.put(pkg.getKey(), pkg.getValue());
+                    outputPackages.put(pkg.getKey(), pkg.getValue());
                 }
             }
         }
 
         INPUTS = Collections.unmodifiableMap(inputs);
         OUTPUTS = Collections.unmodifiableMap(outputs);
-        INPUT_PACKAGES = Collections.unmodifiableMap(inPackages);
-        OUTPUT_PACKAGES = Collections.unmodifiableMap(outPackages);
+        INPUT_PACKAGES = Collections.unmodifiableMap(inputPackages);
+        OUTPUT_PACKAGES = Collections.unmodifiableMap(outputPackages);
     }
 
     static public Class<? extends InputAdapter> inputClass(String path) {

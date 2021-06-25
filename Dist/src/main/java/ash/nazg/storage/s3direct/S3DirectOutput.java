@@ -7,6 +7,7 @@ package ash.nazg.storage.s3direct;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.hadoop.HadoopOutput;
+import ash.nazg.storage.hadoop.HadoopStorage;
 import ash.nazg.storage.metadata.AdapterMeta;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
@@ -30,10 +31,12 @@ public class S3DirectOutput extends HadoopOutput {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("S3Direct", "Adapter for any S3-compatible storage",
+        return new AdapterMeta("S3Direct", "Multipart output adapter for any S3-compatible storage, based on Hadoop adapter",
                 S3DirectStorage.PATH_PATTERN,
 
                 new DefinitionMetaBuilder()
+                        .def(CODEC, "Codec to compress the output", HadoopStorage.Codec.class, HadoopStorage.Codec.NONE.name(),
+                                "By default, use no compression")
                         .def(S3D_ACCESS_KEY, "S3 access key", null, "By default, try to discover" +
                                 " the key from client's standard credentials chain")
                         .def(S3D_SECRET_KEY, "S3 secret key", null, "By default, try to discover" +

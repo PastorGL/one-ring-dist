@@ -33,10 +33,16 @@ public class S3DirectInput extends HadoopInput {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("S3Direct", "Adapter for any S3-compatible storage",
+        return new AdapterMeta("S3Direct", "Input adapter for any S3-compatible storage, based on Hadoop adapter",
                 S3DirectStorage.PATH_PATTERN,
 
                 new DefinitionMetaBuilder()
+                        .def(MAX_RECORD_SIZE, "Max record size, bytes", Integer.class, "1048576",
+                                "By default, 1M")
+                        .def(SCHEMA, "Loose schema of input records (just column of field names," +
+                                        " optionally with placeholders to skip some, denoted by underscores _)",
+                                String[].class, null, "By default, don't set the schema." +
+                                        " Depending of source type, built-in schema may be used")
                         .def(S3D_ACCESS_KEY, "S3 access key", null, "By default, try to discover" +
                                 " the key from client's standard credentials chain")
                         .def(S3D_SECRET_KEY, "S3 secret key", null, "By default, try to discover" +

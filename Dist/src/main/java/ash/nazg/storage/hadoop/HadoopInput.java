@@ -25,8 +25,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class HadoopInput extends InputAdapter {
-    private static final String MAX_RECORD_SIZE = "max.record.size";
-    private static final String SCHEMA = "schema";
+    protected static final String MAX_RECORD_SIZE = "max.record.size";
+    protected static final String SCHEMA = "schema";
 
     protected int partCount;
     protected String[] inputSchema;
@@ -39,7 +39,8 @@ public class HadoopInput extends InputAdapter {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("Hadoop", "Default Storage that utilizes Hadoop FileSystems",
+        return new AdapterMeta("Hadoop", "Default input adapter that utilizes available Hadoop FileSystems." +
+                " Supports text, text-based columnar (CSV/TSV), and Parquet files, optionally compressed",
                 HadoopStorage.PATH_PATTERN,
 
                 new DefinitionMetaBuilder()
@@ -48,7 +49,7 @@ public class HadoopInput extends InputAdapter {
                         .def(SCHEMA, "Loose schema of input records (just column of field names," +
                                         " optionally with placeholders to skip some, denoted by underscores _)",
                                 String[].class, null, "By default, don't set the schema." +
-                                        " Depending of source type, built-in schema may be used")
+                                        " Depending of source file type, built-in schema may be used")
                         .build()
         );
     }

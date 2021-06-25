@@ -15,7 +15,7 @@ import org.apache.spark.api.java.function.Function2;
 import java.util.Iterator;
 
 public class HadoopOutput extends OutputAdapter {
-    static final String CODEC = "codec";
+    protected static final String CODEC = "codec";
 
     protected HadoopStorage.Codec codec;
     protected String[] columns;
@@ -23,7 +23,8 @@ public class HadoopOutput extends OutputAdapter {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("Hadoop", "Default Storage that utilizes Hadoop FileSystems",
+        return new AdapterMeta("Hadoop", "Default output adapter that utilizes Hadoop FileSystems." +
+                " Supports text, text-based columnar (CSV/TSV), and Parquet files, optionally compressed",
                 HadoopStorage.PATH_PATTERN,
 
                 new DefinitionMetaBuilder()

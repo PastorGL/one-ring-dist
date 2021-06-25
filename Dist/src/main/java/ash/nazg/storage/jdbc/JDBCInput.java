@@ -43,8 +43,9 @@ public class JDBCInput extends InputAdapter {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("JDBC", "JDBC Input from an SQL SELECT query against a configured database." +
-                " Must use numeric boundaries for each part",
+        return new AdapterMeta("JDBC", "JDBC adapter for reading data from an SQL SELECT query against" +
+                " a configured database. Must use numeric boundaries for each part denoted by two ? placeholders," +
+                " for example, SELECT * FROM table WHERE integer_key BETWEEN ? AND ?",
                 SELECT_PATTERN,
 
                 new DefinitionMetaBuilder()
