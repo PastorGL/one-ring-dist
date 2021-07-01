@@ -107,7 +107,12 @@ public class Main {
                                     if (ds == null) {
                                         ds = new TaskDefinitionLanguage.DataStream();
                                     }
-                                    ds.input.partCount = _output[1];
+                                    if (ds.input == null) {
+                                        ds.input = new TaskDefinitionLanguage.StreamDesc();
+                                    }
+                                    if (ds.input.partCount == null) {
+                                        ds.input.partCount = _output[1];
+                                    }
                                     return ds;
                                 });
                             }
