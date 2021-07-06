@@ -69,6 +69,34 @@ public class Main {
             }
             LayerResolver distResolver = new LayerResolver(props);
 
+            String inputPath;
+            if (configBuilder.hasOption("i")) {
+                inputPath = configBuilder.getOptionValue("i");
+            } else {
+                inputPath = config.getForeignValue(Constants.INPUT_LAYER + "." + Constants.PATH);
+            }
+            if (inputPath == null) {
+                inputPath = local ? "." : "hdfs:///input";
+                config.setForeignLayer(Constants.INPUT_LAYER + "." + Constants.PATH, inputPath);
+            }
+            if (config.getForeignValue(Constants.INPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS) == null) {
+                config.setForeignLayer(Constants.INPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS, inputPath);
+            }
+
+            String outputPath;
+            if (configBuilder.hasOption("o")) {
+                outputPath = configBuilder.getOptionValue("o");
+            } else {
+                outputPath = config.getForeignValue(Constants.OUTPUT_LAYER + "." + Constants.PATH);
+            }
+            if (outputPath == null) {
+                outputPath = local ? "." : "hdfs:///output";
+                config.setForeignLayer(Constants.OUTPUT_LAYER + "." + Constants.PATH, outputPath);
+            }
+            if (config.getForeignValue(Constants.OUTPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS) == null) {
+                config.setForeignLayer(Constants.OUTPUT_LAYER + "." + Constants.PATH_PREFIX + Constants.DEFAULT_DS, outputPath);
+            }
+
             Direction taskDirection = Direction.parse(distResolver.get("wrap", "nop"));
             Direction distDirection = Direction.parse(configBuilder.getOptionValue("d"));
             if (taskDirection.anyDirection && distDirection.anyDirection) {
