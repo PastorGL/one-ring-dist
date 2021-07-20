@@ -57,7 +57,7 @@ public class StorageTestRunner implements AutoCloseable {
         for (String input : taskConfig.input) {
             String path = ioResolver.inputPath(input);
 
-            InputAdapter inputAdapter = Adapters.inputClass(path).newInstance();
+            InputAdapter inputAdapter = Adapters.inputAdapter(path);
             inputAdapter.initialize(context);
             inputAdapter.configure(input, taskConfig);
             result.put(input, inputAdapter.load(path));
@@ -81,7 +81,7 @@ public class StorageTestRunner implements AutoCloseable {
             if (rdd != null) {
                 String path = ioResolver.outputPath(output);
 
-                OutputAdapter outputAdapter = Adapters.outputClass(path).newInstance();
+                OutputAdapter outputAdapter = Adapters.outputAdapter(path);
                 outputAdapter.initialize(context);
                 outputAdapter.configure(output, taskConfig);
                 outputAdapter.save(path, (JavaRDD) rdd);

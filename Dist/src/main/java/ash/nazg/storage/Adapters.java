@@ -76,20 +76,20 @@ public class Adapters {
         OUTPUT_PACKAGES = Collections.unmodifiableMap(outputPackages);
     }
 
-    static public Class<? extends InputAdapter> inputClass(String path) {
+    static public InputAdapter inputAdapter(String path) throws Exception {
         for (AdapterInfo ia : INPUTS.values()) {
             if (path.matches(ia.meta.pattern)) {
-                return (Class<? extends InputAdapter>) ia.adapterClass;
+                return (InputAdapter) ia.adapterClass.newInstance();
             }
         }
 
         return null;
     }
 
-    static public Class<? extends OutputAdapter> outputClass(String path) {
+    static public OutputAdapter outputAdapter(String path) throws Exception {
         for (AdapterInfo oa : OUTPUTS.values()) {
             if (path.matches(oa.meta.pattern)) {
-                return (Class<? extends OutputAdapter>) oa.adapterClass;
+                return (OutputAdapter) oa.adapterClass.newInstance();
             }
         }
 

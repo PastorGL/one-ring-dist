@@ -22,7 +22,6 @@ import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple3;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 
 public class Main {
@@ -129,7 +128,7 @@ public class Main {
                     String wrapperStorePath = distResolver.get("store");
 
                     if (wrapperStorePath != null) {
-                        StreamResolver dsResolver = new StreamResolver(config.dataStreams);
+                        StreamResolver dsResolver = new StreamResolver(config.streams);
                         List<String> wrapperStore = context.textFile(wrapperStorePath + "/outputs/part-00000")
                                 .collect();
 
@@ -142,7 +141,7 @@ public class Main {
                             String pathTo = ioResolver.outputPath(_output[0]);
                             if (!pathTo.equals(pathFrom)) {
                                 paths.add(new Tuple3<>(_output[0], pathFrom, pathTo));
-                                config.dataStreams.compute(_output[0], (k, ds) -> {
+                                config.streams.compute(_output[0], (k, ds) -> {
                                     if (ds == null) {
                                         ds = new TaskDefinitionLanguage.DataStream();
                                     }
@@ -172,14 +171,18 @@ public class Main {
                     String pathFrom = pathEntry._2();
                     String pathTo = pathEntry._3();
 
-                    Class<? extends InputAdapter> inputClass = Adapters.inputClass(pathFrom);
-                    InputAdapter inputAdapter = (inputClass == null) ? new HadoopInput() : inputClass.newInstance();
+                    InputAdapter inputAdapter = Adapters.inputAdapter(pathFrom);
+                    if (inputAdapter == null) {
+                        inputAdapter = new HadoopInput();
+                    }
                     inputAdapter.initialize(context);
                     inputAdapter.configure(dsName, config);
                     JavaRDD rdd = inputAdapter.load(pathFrom);
 
-                    Class<? extends OutputAdapter> outputClass = Adapters.outputClass(pathTo);
-                    OutputAdapter outputAdapter = (outputClass == null) ? new HadoopOutput() : outputClass.newInstance();
+                    OutputAdapter outputAdapter = Adapters.outputAdapter(pathTo);
+                    if (outputAdapter == null) {
+                        outputAdapter = new HadoopOutput();
+                    }
                     outputAdapter.initialize(context);
                     outputAdapter.configure(dsName, config);
                     outputAdapter.save(pathTo, rdd);

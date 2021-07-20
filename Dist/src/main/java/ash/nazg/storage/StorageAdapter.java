@@ -29,7 +29,7 @@ public abstract class StorageAdapter {
     }
 
     protected void configure(String name, TaskDefinitionLanguage.Task taskConfig) throws InvalidConfigValueException {
-        this.dsResolver = new StreamResolver(taskConfig.dataStreams);
+        this.dsResolver = new StreamResolver(taskConfig.streams);
         this.distResolver = new LayerResolver(taskConfig.foreignLayer(Constants.DIST_LAYER));
         this.dsName = name;
 
