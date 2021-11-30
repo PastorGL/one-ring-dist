@@ -157,6 +157,7 @@
                                             <include>commons-cli</include>
                                             <include>com.uber</include>
                                             <include>org.apache.parquet</include>
+                                            <include>io.jenetics</include>
                                         </includes>
                                     </artifactSet>
                                 </configuration>
