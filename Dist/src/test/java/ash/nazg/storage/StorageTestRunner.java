@@ -5,6 +5,8 @@
 package ash.nazg.storage;
 
 import ash.nazg.config.tdl.*;
+import ash.nazg.scripting.*;
+import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.spark.SparkConf;
 import org.apache.spark.api.java.JavaRDD;
@@ -12,11 +14,15 @@ import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import java.io.InputStream;
-import java.util.*;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 
 public class StorageTestRunner implements AutoCloseable {
     private final JavaSparkContext context;
-    private final TaskDefinitionLanguage.Task taskConfig;
+    private final ScriptHolder script;
 
     public StorageTestRunner(boolean replpath, String path) {
         SparkConf sparkConf = new SparkConf()
@@ -43,31 +49,32 @@ public class StorageTestRunner implements AutoCloseable {
                 }
             }
 
-            taskConfig = PropertiesReader.toTask(source, null);
+            script = new ScriptHolder(IOUtils.toString(input, StandardCharsets.UTF_8), null);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     public Map<String, JavaRDDLike> go() throws Exception {
-        HashMap<String, JavaRDDLike> result = new HashMap<>();
-
-        InOutResolver ioResolver = new InOutResolver(taskConfig);
-
-        for (String input : taskConfig.input) {
+        DataContext streams = new DataContext(context);
+        for (String input : script.input) {
             String path = ioResolver.inputPath(input);
 
             InputAdapter inputAdapter = Adapters.inputAdapter(path);
             inputAdapter.initialize(context);
-            inputAdapter.configure(input, taskConfig);
-            result.put(input, inputAdapter.load(path));
+            inputAdapter.configure(input, script);
+            streams.put(input, inputAdapter.load(path));
         }
 
-        new Interpreter(taskConfig, context).processTaskChain(result);
+        TDL4Interpreter tdl4 = new TDL4Interpreter(script);
+        tdl4.initialize(streams);
+        tdl4.interpret();
+
+        Map<String, JavaRDDLike> result = tdl4.result();
 
         Set<String> rddNames = result.keySet();
         Set<String> outputNames = new HashSet<>();
-        for (String output : taskConfig.output) {
+        for (String output : script.output) {
             for (String name : rddNames) {
                 if (name.equals(output)) {
                     outputNames.add(name);
@@ -83,7 +90,7 @@ public class StorageTestRunner implements AutoCloseable {
 
                 OutputAdapter outputAdapter = Adapters.outputAdapter(path);
                 outputAdapter.initialize(context);
-                outputAdapter.configure(output, taskConfig);
+                outputAdapter.configure(output, script);
                 outputAdapter.save(path, (JavaRDD) rdd);
             }
         }

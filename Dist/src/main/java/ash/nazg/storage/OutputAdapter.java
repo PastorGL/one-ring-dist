@@ -7,7 +7,6 @@ package ash.nazg.storage;
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.AdapterResolver;
 import ash.nazg.config.tdl.Constants;
-import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import org.apache.hadoop.io.Text;
 import org.apache.spark.api.java.JavaRDD;
 

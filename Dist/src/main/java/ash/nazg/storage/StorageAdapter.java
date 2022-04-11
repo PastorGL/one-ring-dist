@@ -6,9 +6,6 @@ package ash.nazg.storage;
 
 import ash.nazg.config.InvalidConfigValueException;
 import ash.nazg.config.tdl.Constants;
-import ash.nazg.config.tdl.LayerResolver;
-import ash.nazg.config.tdl.StreamResolver;
-import ash.nazg.config.tdl.TaskDefinitionLanguage;
 import ash.nazg.storage.metadata.AdapterMeta;
 import org.apache.spark.api.java.JavaSparkContext;
 
