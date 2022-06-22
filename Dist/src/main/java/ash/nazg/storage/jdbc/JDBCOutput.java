@@ -38,7 +38,7 @@ public class JDBCOutput extends OutputAdapter {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("JDBC", "JDBC adapter which performs batch INSERT VALUES of columns (in order of incidence)" +
+        return new AdapterMeta("JDBC", "JDBC adapter which performs batch INSERT VALUES of attributes (in order of incidence)" +
                 " into a table in the configured database",
                 JDBC_PATTERN,
 

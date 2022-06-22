@@ -5,6 +5,7 @@
 package ash.nazg.storage;
 
 import ash.nazg.config.tdl.*;
+import ash.nazg.data.DataContext;
 import ash.nazg.scripting.*;
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.mapred.FileInputFormat;
