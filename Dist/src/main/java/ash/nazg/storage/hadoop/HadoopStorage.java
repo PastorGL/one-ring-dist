@@ -1,7 +1,7 @@
 package ash.nazg.storage.hadoop;
 
 import ash.nazg.config.InvalidConfigValueException;
-import ash.nazg.config.tdl.metadata.DefinitionEnum;
+import ash.nazg.config.metadata.DefinitionEnum;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.io.compress.*;
 import scala.Tuple2;
