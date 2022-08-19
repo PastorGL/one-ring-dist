@@ -132,10 +132,10 @@
                                 <configuration>
                                     <createDependencyReducedPom>false</createDependencyReducedPom>
                                     <transformers>
-                                        <transformer
+                                        <transform
                                                 implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                             <mainClass>ash.nazg.dist.Main</mainClass>
-                                        </transformer>
+                                        </transform>
                                     </transformers>
                                     <artifactSet>
                                         <excludes>
@@ -187,10 +187,10 @@
                                 <configuration>
                                     <createDependencyReducedPom>false</createDependencyReducedPom>
                                     <transformers>
-                                        <transformer
+                                        <transform
                                                 implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                             <mainClass>ash.nazg.dist.Main</mainClass>
-                                        </transformer>
+                                        </transform>
                                     </transformers>
                                 </configuration>
                             </execution>
