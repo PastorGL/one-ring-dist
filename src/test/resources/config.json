@@ -4,11 +4,13 @@
             "source": {
                 "path": "",
                 "params": {
+                    "intParam" : 1
                 }
             },
             "dest": {
                 "path": "",
                 "params": {
+                    "stringParam" : "string"
                 }
             }
         },
@@ -16,11 +18,13 @@
             "source": {
                 "path": "",
                 "params": {
+                    "arrParam" : [1,2,3]
                 }
             },
             "dest": {
                 "path": "",
                 "params": {
+                    "enumParam" : "ENUM_NAME"
                 }
             }
         }
@@ -30,11 +34,13 @@
             "source": {
                 "path": "",
                 "params": {
+                    "doubleParam" : 1.234
                 }
             },
             "dest": {
                 "path": "",
                 "params": {
+                    "booleanParam" : true
                 }
             }
         },
@@ -42,11 +48,13 @@
             "source": {
                 "path": "",
                 "params": {
+                    "arrParam" : "1,2,3"
                 }
             },
             "dest": {
                 "path": "",
                 "params": {
+                    "arrParam" : ["1","2","3"]
                 }
             }
         }

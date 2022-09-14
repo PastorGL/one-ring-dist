@@ -5,6 +5,7 @@
 package ash.nazg.dist;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.cli.*;
 
@@ -36,6 +37,7 @@ public class Configuration {
 
     public void read(Reader reader) throws IOException {
         ObjectMapper om = new ObjectMapper();
+        om.enable(DeserializationFeature.USE_JAVA_ARRAY_FOR_JSON_ARRAY);
         copyTasks = om.readValue(reader, new TypeReference<Map<String, Map<String, DistTask>>>() {
         });
     }

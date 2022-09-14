@@ -72,8 +72,8 @@ public class AdapterResolver {
             } else if (clazz.isEnum()) {
                 return (T) Enum.valueOf((Class) clazz, stringValue);
             } else if (String[].class == clazz) {
-                if (value instanceof String[]) {
-                    return (T) value;
+                if (value instanceof Object[]) {
+                    return (T) Arrays.stream((Object[]) value).map(String::valueOf).toArray(String[]::new);
                 }
                 return (T) Arrays.stream(stringValue.split(",")).map(String::trim).toArray(String[]::new);
             }
