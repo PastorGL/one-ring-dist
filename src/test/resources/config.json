@@ -1,0 +1,54 @@
+{
+    "to": {
+        "input1": {
+            "source": {
+                "path": "",
+                "params": {
+                }
+            },
+            "dest": {
+                "path": "",
+                "params": {
+                }
+            }
+        },
+        "input2": {
+            "source": {
+                "path": "",
+                "params": {
+                }
+            },
+            "dest": {
+                "path": "",
+                "params": {
+                }
+            }
+        }
+    },
+    "from": {
+        "output1": {
+            "source": {
+                "path": "",
+                "params": {
+                }
+            },
+            "dest": {
+                "path": "",
+                "params": {
+                }
+            }
+        },
+        "output2": {
+            "source": {
+                "path": "",
+                "params": {
+                }
+            },
+            "dest": {
+                "path": "",
+                "params": {
+                }
+            }
+        }
+    }
+}
