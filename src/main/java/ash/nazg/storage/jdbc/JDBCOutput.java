@@ -40,9 +40,8 @@ public class JDBCOutput extends OutputAdapter {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("JDBC", "JDBC adapter which performs batch INSERT VALUES of attributes (in order of incidence)" +
+        return new AdapterMeta("jdbc", "JDBC adapter which performs batch INSERT VALUES of attributes (in order of incidence)" +
                 " into a table in the configured database",
-                JDBC_PATTERN,
 
                 new DefinitionMetaBuilder()
                         .def(JDBC_DRIVER, "JDBC driver, fully qualified class name")
@@ -50,7 +49,7 @@ public class JDBCOutput extends OutputAdapter {
                         .def(JDBC_USER, "JDBC connection user", null, "By default, user isn't set")
                         .def(JDBC_PASSWORD, "JDBC connection password", null, "By default, use no password")
                         .def(BATCH_SIZE, "Batch size for SQL INSERTs", Integer.class,
-                                "500", "By default, use 500 records")
+                                500, "By default, use 500 records")
                         .def(COLUMNS, "Columns to write",
                                 String[].class, null, "By default, select all columns")
                         .def(DELIMITER, "Record column delimiter",
@@ -61,15 +60,15 @@ public class JDBCOutput extends OutputAdapter {
 
     @Override
     protected void configure() {
-        dbDriver = outputResolver.get(JDBC_DRIVER);
-        dbUrl = outputResolver.get(JDBC_URL);
-        dbUser = outputResolver.get(JDBC_USER);
-        dbPassword = outputResolver.get(JDBC_PASSWORD);
+        dbDriver = resolver.get(JDBC_DRIVER);
+        dbUrl = resolver.get(JDBC_URL);
+        dbUser = resolver.get(JDBC_USER);
+        dbPassword = resolver.get(JDBC_PASSWORD);
 
-        batchSize = outputResolver.get(BATCH_SIZE);
+        batchSize = resolver.get(BATCH_SIZE);
 
-        columns = outputResolver.get(COLUMNS);
-        delimiter = outputResolver.get(DELIMITER);
+        columns = resolver.get(COLUMNS);
+        delimiter = resolver.get(DELIMITER);
     }
 
     @Override

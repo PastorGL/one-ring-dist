@@ -5,9 +5,9 @@
 package ash.nazg.storage.hadoop;
 
 import ash.nazg.dist.InvalidConfigurationException;
+import ash.nazg.metadata.AdapterMeta;
 import ash.nazg.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.InputAdapter;
-import ash.nazg.metadata.AdapterMeta;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -15,21 +15,24 @@ import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.io.Text;
-import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import scala.Tuple2;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class HadoopInput extends InputAdapter {
-    protected static final String MAX_RECORD_SIZE = "max.record.size";
+    protected static final String MAX_RECORD_SIZE = "max_record_size";
     protected static final String SCHEMA = "schema";
     protected static final String COLUMNS = "columns";
     protected static final String DELIMITER = "delimiter";
     protected static final String PART_COUNT = "part_count";
+    protected static final String SUB_DIRS = "split_sub_dirs";
+
+    protected boolean subs;
 
     protected int partCount;
     protected String[] inputSchema;
@@ -42,12 +45,14 @@ public class HadoopInput extends InputAdapter {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("Hadoop", "Default input adapter that utilizes available Hadoop FileSystems." +
+        return new AdapterMeta("hadoop", "Default input adapter that utilizes available Hadoop FileSystems." +
                 " Supports text, text-based columnar (CSV/TSV), and Parquet files, optionally compressed",
-                HadoopStorage.PATH_PATTERN,
 
                 new DefinitionMetaBuilder()
-                        .def(MAX_RECORD_SIZE, "Max record size, bytes", Integer.class, "1048576",
+                        .def(SUB_DIRS, "If set, any first-level subdirectories under designated path will" +
+                                        " be split to different streams", Boolean.class, false,
+                                "By default, don't split")
+                        .def(MAX_RECORD_SIZE, "Max record size, bytes", Integer.class, 1048576,
                                 "By default, 1M")
                         .def(SCHEMA, "Loose schema of input records (just column of field names," +
                                         " optionally with placeholders to skip some, denoted by underscores _)",
@@ -65,14 +70,16 @@ public class HadoopInput extends InputAdapter {
 
     @Override
     protected void configure() throws InvalidConfigurationException {
-        inputSchema = inputResolver.get(SCHEMA);
+        subs = resolver.get(SUB_DIRS);
 
-        dsColumns = inputResolver.get(COLUMNS);
-        dsDelimiter = inputResolver.get(DELIMITER);
+        inputSchema = resolver.get(SCHEMA);
 
-        maxRecordSize = inputResolver.get(MAX_RECORD_SIZE);
+        dsColumns = resolver.get(COLUMNS);
+        dsDelimiter = resolver.get(DELIMITER);
 
-        partCount = Math.max(inputResolver.get(PART_COUNT), 1);
+        maxRecordSize = resolver.get(MAX_RECORD_SIZE);
+
+        partCount = Math.max(resolver.get(PART_COUNT), 1);
 
         int executors = Integer.parseInt(context.getConf().get("spark.executor.instances", "-1"));
         numOfExecutors = (executors <= 0) ? 1 : (int) Math.ceil(executors * 0.8);
@@ -84,30 +91,30 @@ public class HadoopInput extends InputAdapter {
     }
 
     @Override
-    public JavaRDD<Text> load(String globPattern) {
+    public Map<String, JavaRDDLike> load(String globPattern) {
         // path, regex
         List<Tuple2<String, String>> splits = HadoopStorage.srcDestGroup(globPattern);
 
         // files
-        List<String> discoveredFiles = context.parallelize(splits, numOfExecutors)
+        List<Tuple2<String, String>> discoveredFiles = context.parallelize(splits, numOfExecutors)
                 .flatMap(srcDestGroup -> {
-                    List<String> files = new ArrayList<>();
+                    List<Tuple2<String, String>> files = new ArrayList<>();
                     try {
-                        Path srcPath = new Path(srcDestGroup._1());
+                        Path srcPath = new Path(srcDestGroup._1);
 
                         Configuration conf = new Configuration();
 
                         FileSystem srcFS = srcPath.getFileSystem(conf);
                         RemoteIterator<LocatedFileStatus> srcFiles = srcFS.listFiles(srcPath, true);
 
-                        Pattern pattern = Pattern.compile(srcDestGroup._2());
+                        Pattern pattern = Pattern.compile(srcDestGroup._2);
 
                         while (srcFiles.hasNext()) {
                             String srcFile = srcFiles.next().getPath().toString();
 
                             Matcher m = pattern.matcher(srcFile);
                             if (m.matches()) {
-                                files.add(srcFile);
+                                files.add(new Tuple2<>(srcDestGroup._1, srcFile));
                             }
                         }
                     } catch (Exception e) {
@@ -121,21 +128,55 @@ public class HadoopInput extends InputAdapter {
                 .collect();
 
         System.out.println("Discovered Hadoop FileSystem files:");
-        discoveredFiles.forEach(System.out::println);
+        discoveredFiles.stream().map(Tuple2::_2).forEach(System.out::println);
 
-        int countOfFiles = discoveredFiles.size();
+        Map<String, List<String>> prefixMap = new HashMap<>();
 
-        int groupSize = countOfFiles / partCount;
-        if (groupSize <= 0) {
-            groupSize = 1;
+        if (subs) {
+            for (Tuple2<String, String> file : discoveredFiles) {
+                int prefixLen = file._1.length();
+                if (file._1.charAt(prefixLen - 1) == '/') {
+                    prefixLen--;
+                }
+
+                String ds = "";
+                int p = file._2.substring(prefixLen).indexOf("/");
+                if (p != -1) {
+                    int l = file._2.substring(prefixLen).lastIndexOf("/");
+                    if (l != p) {
+                        ds = file._2.substring(p + 1, l);
+                    }
+                }
+                prefixMap.compute(ds, (k, v) -> {
+                    if (v == null) {
+                        v = new ArrayList<>();
+                    }
+                    v.add(file._2);
+                    return v;
+                });
+            }
+        } else {
+            prefixMap.put("", discoveredFiles.stream().map(Tuple2::_2).collect(Collectors.toList()));
         }
 
-        List<List<String>> partNum = new ArrayList<>();
-        Lists.partition(discoveredFiles, groupSize).forEach(p -> partNum.add(new ArrayList<>(p)));
+        Map<String, JavaRDDLike> ret = new HashMap<>();
+        for (Map.Entry<String, List<String>> ds : prefixMap.entrySet()) {
+            List<String> files = ds.getValue();
 
-        FlatMapFunction<List<String>, Text> inputFunction = new InputFunction(inputSchema, dsColumns, dsDelimiter.charAt(0), maxRecordSize);
+            int groupSize = files.size() / partCount;
+            if (groupSize <= 0) {
+                groupSize = 1;
+            }
 
-        return context.parallelize(partNum, partNum.size())
-                .flatMap(inputFunction);
+            List<List<String>> partNum = new ArrayList<>();
+            Lists.partition(files, groupSize).forEach(p -> partNum.add(new ArrayList<>(p)));
+
+            FlatMapFunction<List<String>, Text> inputFunction = new InputFunction(inputSchema, dsColumns, dsDelimiter.charAt(0), maxRecordSize);
+
+            return Collections.singletonMap(ds.getKey(), context.parallelize(partNum, partNum.size())
+                    .flatMap(inputFunction));
+        }
+
+        return ret;
     }
 }

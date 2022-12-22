@@ -75,9 +75,9 @@ public class Adapters {
         OUTPUT_PACKAGES = Collections.unmodifiableMap(outputPackages);
     }
 
-    static public InputAdapter inputAdapter(String path) throws Exception {
+    static public InputAdapter inputAdapter(String name) throws Exception {
         for (AdapterInfo ia : INPUTS.values()) {
-            if (path.matches(ia.meta.pattern)) {
+            if (name.matches(ia.meta.name)) {
                 return (InputAdapter) ia.adapterClass.newInstance();
             }
         }
@@ -85,9 +85,9 @@ public class Adapters {
         return null;
     }
 
-    static public OutputAdapter outputAdapter(String path) throws Exception {
+    static public OutputAdapter outputAdapter(String name) throws Exception {
         for (AdapterInfo oa : OUTPUTS.values()) {
-            if (path.matches(oa.meta.pattern)) {
+            if (name.matches(oa.meta.name)) {
                 return (OutputAdapter) oa.adapterClass.newInstance();
             }
         }

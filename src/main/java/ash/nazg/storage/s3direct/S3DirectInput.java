@@ -9,14 +9,17 @@ import ash.nazg.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.hadoop.HadoopInput;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
+import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.Lists;
 import org.apache.hadoop.io.Text;
-import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.function.FlatMapFunction;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -33,11 +36,13 @@ public class S3DirectInput extends HadoopInput {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("S3Direct", "Input adapter for any S3-compatible storage, based on Hadoop adapter",
-                S3DirectStorage.PATH_PATTERN,
+        return new AdapterMeta("s3direct", "Input adapter for any S3-compatible storage, based on Hadoop adapter",
 
                 new DefinitionMetaBuilder()
-                        .def(MAX_RECORD_SIZE, "Max record size, bytes", Integer.class, "1048576",
+                        .def(SUB_DIRS, "If set, any first-level subdirectories under designated path will" +
+                                        " be split to different streams", Boolean.class, false,
+                                "By default, don't split")
+                        .def(MAX_RECORD_SIZE, "Max record size, bytes", Integer.class, 1048576,
                                 "By default, 1M")
                         .def(SCHEMA, "Loose schema of input records (just column of field names," +
                                         " optionally with placeholders to skip some, denoted by underscores _)",
@@ -65,16 +70,16 @@ public class S3DirectInput extends HadoopInput {
     protected void configure() {
         super.configure();
 
-        accessKey = inputResolver.get(S3D_ACCESS_KEY);
-        secretKey = inputResolver.get(S3D_SECRET_KEY);
-        endpoint = inputResolver.get(S3D_ENDPOINT);
-        region = inputResolver.get(S3D_REGION);
+        accessKey = resolver.get(S3D_ACCESS_KEY);
+        secretKey = resolver.get(S3D_SECRET_KEY);
+        endpoint = resolver.get(S3D_ENDPOINT);
+        region = resolver.get(S3D_REGION);
 
-        tmpDir = inputResolver.get("tmp");
+        tmpDir = resolver.get("tmp");
     }
 
     @Override
-    public JavaRDD load(String s3path) {
+    public Map<String, JavaRDDLike> load(String s3path) {
         Matcher m = Pattern.compile(S3DirectStorage.PATH_PATTERN).matcher(s3path);
         m.matches();
         String bucket = m.group(1);
@@ -86,27 +91,66 @@ public class S3DirectInput extends HadoopInput {
         request.setBucketName(bucket);
         request.setPrefix(keyPrefix);
 
-        List<String> discoveredFiles = s3.listObjects(request).getObjectSummaries().stream()
-                .map(S3ObjectSummary::getKey)
-                .collect(Collectors.toList());
+        ObjectListing lo;
+        List<String> discoveredFiles = new ArrayList<>();
+        do {
+            lo = s3.listObjects(request);
+            discoveredFiles.addAll(lo.getObjectSummaries().stream()
+                    .map(S3ObjectSummary::getKey)
+                    .collect(Collectors.toList()));
+        } while (lo.isTruncated());
 
         System.out.println("Discovered S3 objects:");
         discoveredFiles.forEach(System.out::println);
 
-        int countOfFiles = discoveredFiles.size();
+        Map<String, List<String>> prefixMap = new HashMap<>();
 
-        int groupSize = countOfFiles / partCount;
-        if (groupSize <= 0) {
-            groupSize = 1;
+        if (subs) {
+            int prefixLen = keyPrefix.length();
+            if (keyPrefix.charAt(prefixLen - 1) == '/') {
+                prefixLen--;
+            }
+
+            for (String file : discoveredFiles) {
+                String ds = "";
+                int p = file.substring(prefixLen).indexOf("/");
+                if (p != -1) {
+                    int l = file.substring(prefixLen).lastIndexOf("/");
+                    if (l != p) {
+                        ds = file.substring(p + 1, l);
+                    }
+                }
+                prefixMap.compute(ds, (k, v) -> {
+                    if (v == null) {
+                        v = new ArrayList<>();
+                    }
+                    v.add(file);
+                    return v;
+                });
+            }
+        } else {
+            prefixMap.put("", discoveredFiles);
         }
 
-        List<List<String>> partNum = new ArrayList<>();
-        Lists.partition(discoveredFiles, groupSize).forEach(p -> partNum.add(new ArrayList<>(p)));
+        Map<String, JavaRDDLike> ret = new HashMap<>();
+        for (Map.Entry<String, List<String>> ds : prefixMap.entrySet()) {
+            List<String> files = ds.getValue();
 
-        FlatMapFunction<List<String>, Text> inputFunction = new S3DirectInputFunction(inputSchema, dsColumns, dsDelimiter.charAt(0), maxRecordSize,
-                endpoint, region, accessKey, secretKey, bucket, tmpDir);
+            int groupSize = files.size() / partCount;
+            if (groupSize <= 0) {
+                groupSize = 1;
+            }
 
-        return context.parallelize(partNum, partNum.size())
-                .flatMap(inputFunction);
+            List<List<String>> partFiles = new ArrayList<>();
+            Lists.partition(files, groupSize).forEach(p -> partFiles.add(new ArrayList<>(p)));
+
+            FlatMapFunction<List<String>, Text> inputFunction = new S3DirectInputFunction(inputSchema, dsColumns, dsDelimiter.charAt(0), maxRecordSize,
+                    endpoint, region, accessKey, secretKey, bucket, tmpDir);
+
+            ret.put(ds.getKey(), context.parallelize(partFiles, partFiles.size())
+                    .flatMap(inputFunction));
+        }
+
+        return ret;
     }
 }

@@ -6,19 +6,16 @@ package ash.nazg.storage;
 
 import ash.nazg.dist.InvalidConfigurationException;
 import ash.nazg.metadata.AdapterResolver;
-import org.apache.hadoop.io.Text;
-import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.api.java.JavaRDDLike;
 
 import java.util.Map;
 
 public abstract class InputAdapter extends StorageAdapter {
-    protected AdapterResolver inputResolver;
+    public void configure(Map<String, Object> adapterConfig) throws InvalidConfigurationException {
+        resolver = new AdapterResolver(meta, adapterConfig);
 
-    public abstract JavaRDD<Text> load(String path) throws Exception;
-
-    public void configure(String name, Map adapterConfig) throws InvalidConfigurationException {
-        inputResolver = new AdapterResolver(meta, adapterConfig);
-
-        super.configure(name, adapterConfig);
+        configure();
     }
+
+    public abstract Map<String, JavaRDDLike> load(String path) throws Exception;
 }

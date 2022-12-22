@@ -31,11 +31,10 @@ public class S3DirectOutput extends HadoopOutput {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("S3Direct", "Multipart output adapter for any S3-compatible storage, based on Hadoop adapter",
-                S3DirectStorage.PATH_PATTERN,
+        return new AdapterMeta("s3direct", "Multipart output adapter for any S3-compatible storage, based on Hadoop adapter",
 
                 new DefinitionMetaBuilder()
-                        .def(CODEC, "Codec to compress the output", HadoopStorage.Codec.class, HadoopStorage.Codec.NONE.name(),
+                        .def(CODEC, "Codec to compress the output", HadoopStorage.Codec.class, HadoopStorage.Codec.NONE,
                                 "By default, use no compression")
                         .def(S3D_ACCESS_KEY, "S3 access key", null, "By default, try to discover" +
                                 " the key from client's standard credentials chain")
@@ -59,14 +58,14 @@ public class S3DirectOutput extends HadoopOutput {
     protected void configure() throws InvalidConfigurationException {
         super.configure();
 
-        accessKey = outputResolver.get(S3D_ACCESS_KEY);
-        secretKey = outputResolver.get(S3D_SECRET_KEY);
-        endpoint = outputResolver.get(S3D_ENDPOINT);
-        region = outputResolver.get(S3D_REGION);
+        accessKey = resolver.get(S3D_ACCESS_KEY);
+        secretKey = resolver.get(S3D_SECRET_KEY);
+        endpoint = resolver.get(S3D_ENDPOINT);
+        region = resolver.get(S3D_REGION);
 
-        contentType = outputResolver.get(CONTENT_TYPE);
+        contentType = resolver.get(CONTENT_TYPE);
 
-        tmpDir = outputResolver.get("tmp");
+        tmpDir = resolver.get("tmp");
     }
 
     @Override

@@ -11,12 +11,13 @@ import org.apache.spark.api.java.JavaRDDLike;
 import java.util.Map;
 
 public abstract class OutputAdapter extends StorageAdapter {
-    protected AdapterResolver outputResolver;
+    protected String dsName;
 
-    public void configure(String name, Map adapterConfig) throws InvalidConfigurationException {
-        outputResolver = new AdapterResolver(meta, adapterConfig);
+    public void configure(String dsName, Map<String, Object> adapterConfig) throws InvalidConfigurationException {
+        this.dsName = dsName;
+        resolver = new AdapterResolver(meta, adapterConfig);
 
-        super.configure(name, adapterConfig);
+        configure();
     }
 
     public abstract void save(String path, JavaRDDLike rdd);

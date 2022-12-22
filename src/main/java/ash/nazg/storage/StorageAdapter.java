@@ -6,6 +6,7 @@ package ash.nazg.storage;
 
 import ash.nazg.dist.InvalidConfigurationException;
 import ash.nazg.metadata.AdapterMeta;
+import ash.nazg.metadata.AdapterResolver;
 import org.apache.spark.api.java.JavaSparkContext;
 
 import java.util.Map;
@@ -14,7 +15,8 @@ public abstract class StorageAdapter {
     public final AdapterMeta meta;
 
     protected JavaSparkContext context;
-    protected String dsName;
+
+    protected AdapterResolver resolver;
 
     public StorageAdapter() {
         this.meta = meta();
@@ -22,12 +24,6 @@ public abstract class StorageAdapter {
 
     public void initialize(JavaSparkContext ctx) {
         this.context = ctx;
-    }
-
-    protected void configure(String name, Map adapterConfig) throws InvalidConfigurationException {
-        this.dsName = name;
-
-        configure();
     }
 
     protected abstract AdapterMeta meta();

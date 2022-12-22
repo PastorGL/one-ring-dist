@@ -4,6 +4,7 @@
  */
 package ash.nazg.dist;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,19 +31,18 @@ public class Configuration {
         addOption("m", "driverMemory", true, "Driver memory for local mode, by default Spark uses 1g");
         addOption("u", "sparkUI", false, "Enable Spark UI for local mode, by default it is disabled");
         addOption("L", "localCores", true, "Set cores # for local mode, by default * -- all cores");
-        addOption("S", "wrapperStorePath", true, "Path where to store a list of outputs");
     }
 
-    private Map<String, Map<String, DistTask>> copyTasks;
+    private Map<String, DistTask[]> copyTasks;
 
     public void read(Reader reader) throws IOException {
         ObjectMapper om = new ObjectMapper();
         om.enable(DeserializationFeature.USE_JAVA_ARRAY_FOR_JSON_ARRAY);
-        copyTasks = om.readValue(reader, new TypeReference<Map<String, Map<String, DistTask>>>() {
+        copyTasks = om.readValue(reader, new TypeReference<Map<String, DistTask[]>>() {
         });
     }
 
-    public Map<String, DistTask> getDirection(String direction) {
+    public DistTask[] getDirection(String direction) {
         return copyTasks.get(direction);
     }
 
@@ -84,11 +84,16 @@ public class Configuration {
     }
 
     static public class DistTask {
+        @JsonProperty(required = true)
         public DistLocation source;
+        @JsonProperty(required = true)
         public DistLocation dest;
     }
 
     static public class DistLocation {
+        @JsonProperty(required = true)
+        public String adapter;
+        @JsonProperty(required = true)
         public String path;
         public Map<String, Object> params;
     }

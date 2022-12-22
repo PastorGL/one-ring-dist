@@ -228,9 +228,9 @@ public class HadoopStorage {
         String suffix = "";
 
         if (!StringUtils.isEmpty(name)) {
-            String[] parts = name.split("\\.");
-            if (parts.length > 1) {
-                suffix = parts[parts.length - 1];
+            int dot = name.lastIndexOf('.');
+            if (dot > 0) {
+                suffix = name.substring(dot + 1);
             }
         }
 

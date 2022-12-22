@@ -25,12 +25,11 @@ public class HadoopOutput extends OutputAdapter {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("Hadoop", "Default output adapter that utilizes Hadoop FileSystems." +
+        return new AdapterMeta("hadoop", "Default output adapter that utilizes Hadoop FileSystems." +
                 " Supports text, text-based columnar (CSV/TSV), and Parquet files, optionally compressed",
-                HadoopStorage.PATH_PATTERN,
 
                 new DefinitionMetaBuilder()
-                        .def(CODEC, "Codec to compress the output", HadoopStorage.Codec.class, HadoopStorage.Codec.NONE.name(),
+                        .def(CODEC, "Codec to compress the output", HadoopStorage.Codec.class, HadoopStorage.Codec.NONE,
                                 "By default, use no compression")
                         .def(COLUMNS, "Columns to write",
                                 String[].class, null, "By default, select all columns")
@@ -41,10 +40,10 @@ public class HadoopOutput extends OutputAdapter {
     }
 
     protected void configure() throws InvalidConfigurationException {
-        codec = outputResolver.get(CODEC);
+        codec = resolver.get(CODEC);
 
-        columns = outputResolver.get(COLUMNS);
-        delimiter = outputResolver.get(DELIMITER);
+        columns = resolver.get(COLUMNS);
+        delimiter = resolver.get(DELIMITER);
     }
 
     @Override

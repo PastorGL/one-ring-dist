@@ -7,8 +7,6 @@ package ash.nazg.dist;
 import ash.nazg.storage.Adapters;
 import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.OutputAdapter;
-import ash.nazg.storage.hadoop.HadoopInput;
-import ash.nazg.storage.hadoop.HadoopOutput;
 import org.apache.commons.cli.ParseException;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
@@ -101,34 +99,33 @@ public class Main {
             }
             Map<String, Object> globalParams = Collections.singletonMap("tmp", tmp);
 
-            Map<String, Configuration.DistTask> direction = configBuilder.getDirection(distDirection);
+            Configuration.DistTask[] direction = configBuilder.getDirection(distDirection);
+            for (Configuration.DistTask distTask : direction) {
+                String from = distTask.source.adapter;
+                String to = distTask.dest.adapter;
 
-            for (Map.Entry<String, Configuration.DistTask> output : direction.entrySet()) {
-                Configuration.DistTask distTask = output.getValue();
-                String pathFrom = distTask.source.path;
-                String pathTo = distTask.dest.path;
-                if (!pathTo.equals(pathFrom)) {
-                    String dsName = output.getKey();
+                InputAdapter inputAdapter = Adapters.inputAdapter(from);
+                if (inputAdapter == null) {
+                    throw new InvalidConfigurationException("Adapter named '" + from + "' not found");
+                }
 
-                    InputAdapter inputAdapter = Adapters.inputAdapter(pathFrom);
-                    if (inputAdapter == null) {
-                        inputAdapter = new HadoopInput();
-                    }
-                    inputAdapter.initialize(context);
-                    Map<String, Object> params = new HashMap<>(globalParams);
-                    params.putAll(distTask.source.params);
-                    inputAdapter.configure(dsName, params);
-                    JavaRDDLike rdd = inputAdapter.load(pathFrom);
+                inputAdapter.initialize(context);
+                Map<String, Object> params = new HashMap<>(globalParams);
+                params.putAll(distTask.source.params);
+                inputAdapter.configure(params);
+                Map<String, JavaRDDLike> rdd = inputAdapter.load(distTask.source.path);
 
-                    OutputAdapter outputAdapter = Adapters.outputAdapter(pathTo);
+                for (Map.Entry<String, JavaRDDLike> ds : rdd.entrySet()) {
+                    OutputAdapter outputAdapter = Adapters.outputAdapter(to);
                     if (outputAdapter == null) {
-                        outputAdapter = new HadoopOutput();
+                        throw new InvalidConfigurationException("Adapter named '" + to + "' not found");
                     }
+
                     outputAdapter.initialize(context);
                     params = new HashMap<>(globalParams);
                     params.putAll(distTask.dest.params);
-                    outputAdapter.configure(dsName, params);
-                    outputAdapter.save(pathTo, rdd);
+                    outputAdapter.configure(ds.getKey(), params);
+                    outputAdapter.save(distTask.dest.path, ds.getValue());
                 }
             }
         } catch (Exception ex) {

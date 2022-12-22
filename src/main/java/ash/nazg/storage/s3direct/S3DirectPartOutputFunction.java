@@ -11,6 +11,7 @@ import ash.nazg.storage.hadoop.PartOutputFunction;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -56,7 +57,7 @@ public class S3DirectPartOutputFunction extends PartOutputFunction {
 
         AmazonS3 _s3 = S3DirectStorage.get(endpoint, region, accessKey, secretKey);
 
-        String partName = String.format("part-%05d", idx);
+        String partName = (_name.isEmpty() ? "" : ("/" + _name)) + "/" + String.format("part-%05d", idx);
         if (codec != HadoopStorage.Codec.NONE) {
             partName += "." + codec.name().toLowerCase();
         }
@@ -65,7 +66,7 @@ public class S3DirectPartOutputFunction extends PartOutputFunction {
             key = key.substring(0, key.lastIndexOf("/"));
         }
 
-        StreamTransferManager stm = new StreamTransferManager(bucket, key + "/" + partName, _s3) {
+        StreamTransferManager stm = new StreamTransferManager(bucket, key + partName, _s3) {
             @Override
             public void customiseInitiateRequest(InitiateMultipartUploadRequest request) {
                 ObjectMetadata om = new ObjectMetadata();
@@ -81,19 +82,19 @@ public class S3DirectPartOutputFunction extends PartOutputFunction {
                 .getMultiPartOutputStreams().get(0);
 
         if ("parquet".equalsIgnoreCase(suffix)) {
-            Path partPath = new Path(_tmp + "/" + _name + "/" + partName);
+            Path tmpPath = new Path(_tmp + "/" + RandomStringUtils.randomAlphanumeric(16) + "/" + partName);
 
-            writeToParquetFile(conf, partPath, it);
+            writeToParquetFile(conf, tmpPath, it);
 
-            FileSystem tmpFs = partPath.getFileSystem(conf);
-            InputStream inputStream = tmpFs.open(partPath, BUFFER_SIZE);
+            FileSystem tmpFs = tmpPath.getFileSystem(conf);
+            InputStream inputStream = tmpFs.open(tmpPath, BUFFER_SIZE);
 
             int len;
             for (byte[] buffer = new byte[BUFFER_SIZE]; (len = inputStream.read(buffer)) > 0; ) {
                 outputStream.write(buffer, 0, len);
             }
             outputStream.close();
-            tmpFs.delete(partPath, false);
+            tmpFs.delete(tmpPath, false);
 
             return null;
         } else {

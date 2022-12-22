@@ -1,62 +1,104 @@
 {
-    "to": {
-        "input1": {
+    "to": [
+        {
             "source": {
-                "path": "",
+                "adapter": "hadoop",
+                "path": "s3://bucket/path/*",
                 "params": {
                     "intParam" : 1
                 }
             },
             "dest": {
-                "path": "",
+                "adapter": "hadoop",
+                "path": "hdfs:///input/input1",
                 "params": {
                     "stringParam" : "string"
                 }
             }
         },
-        "input2": {
+        {
             "source": {
-                "path": "",
+                "adapter": "jdbc",
+                "path": "jdbc:SELECT * FROM table WHERE id BETWEEN ? AND ?",
                 "params": {
                     "arrParam" : [1,2,3]
                 }
             },
             "dest": {
-                "path": "",
+                "adapter": "hadoop",
+                "path": "hdfs:///input/input2",
                 "params": {
                     "enumParam" : "ENUM_NAME"
                 }
             }
         }
-    },
-    "from": {
-        "output1": {
+    ],
+    "another": [
+         {
             "source": {
-                "path": "",
+                "adapter": "hadoop",
+                "path": "s3://bucket/path/*",
+                "params": {
+                    "intParam" : 1
+                }
+            },
+            "dest": {
+                "adapter": "hadoop",
+                "path": "hdfs:///input/input1",
+                "params": {
+                    "stringParam" : "string"
+                }
+            }
+        },
+        {
+            "source": {
+                "adapter": "jdbc",
+                "path": "jdbc:SELECT * FROM table WHERE id BETWEEN ? AND ?",
+                "params": {
+                    "arrParam" : [1,2,3]
+                }
+            },
+            "dest": {
+                "adapter": "hadoop",
+                "path": "hdfs:///input/input2",
+                "params": {
+                    "enumParam" : "ENUM_NAME"
+                }
+            }
+        }
+    ],
+    "from": [
+        {
+            "source": {
+                "adapter": "hadoop",
+                "path": "hdfs:///output/result1",
                 "params": {
                     "doubleParam" : 1.234
                 }
             },
             "dest": {
-                "path": "",
+                "adapter": "s3direct",
+                "path": "s3://bucket/path/*.parquet.snappy",
                 "params": {
                     "booleanParam" : true
                 }
             }
         },
-        "output2": {
+        {
             "source": {
-                "path": "",
+                "adapter": "hadoop",
+                "path": "hdfs:///output/result2",
                 "params": {
                     "arrParam" : "1,2,3"
                 }
             },
             "dest": {
-                "path": "",
+                "adapter": "s3direct",
+                "path": "s3://bucket/path/*.tgz",
                 "params": {
                     "arrParam" : ["1","2","3"]
                 }
             }
         }
-    }
+    ]
 }

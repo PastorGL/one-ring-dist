@@ -73,15 +73,17 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Text>, It
     protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<Text> it) throws Exception {
         String suffix = HadoopStorage.suffix(outputPath);
 
+        String partName = (_name.isEmpty() ? "" : ("/" + _name)) + "/" + String.format("part-%05d", idx);
+
         if ("parquet".equalsIgnoreCase(suffix)) {
-            String partName = outputPath.substring(0, outputPath.lastIndexOf(".")) + "/" + String.format("part-%05d", idx)
+            partName = outputPath.substring(0, outputPath.lastIndexOf(".")) + partName
                     + ((codec != HadoopStorage.Codec.NONE) ? "." + codec.name().toLowerCase() : "") + ".parquet";
 
             writeToParquetFile(conf, new Path(partName), it);
 
             return null;
         } else {
-            String partName = outputPath + "/" + String.format("part-%05d", idx)
+            partName = outputPath + partName
                     + ((codec != HadoopStorage.Codec.NONE) ? "." + codec.name().toLowerCase() : "");
 
             Path partPath = new Path(partName);
