@@ -6,19 +6,16 @@ package ash.nazg.storage;
 
 import ash.nazg.dist.InvalidConfigurationException;
 import ash.nazg.metadata.AdapterResolver;
-import org.apache.spark.api.java.JavaRDDLike;
+import ash.nazg.metadata.DataHolder;
 
 import java.util.Map;
 
 public abstract class OutputAdapter extends StorageAdapter {
-    protected String dsName;
-
-    public void configure(String dsName, Map<String, Object> adapterConfig) throws InvalidConfigurationException {
-        this.dsName = dsName;
+    public void configure(Map<String, Object> adapterConfig) throws InvalidConfigurationException {
         resolver = new AdapterResolver(meta, adapterConfig);
 
         configure();
     }
 
-    public abstract void save(String path, JavaRDDLike rdd);
+    public abstract void save(String path, DataHolder rdd);
 }

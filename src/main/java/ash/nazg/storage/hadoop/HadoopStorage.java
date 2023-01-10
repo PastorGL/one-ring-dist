@@ -245,7 +245,7 @@ public class HadoopStorage {
         LZ4(Lz4Codec.class),
         ZST(ZStandardCodec.class);
 
-        Class<? extends CompressionCodec> codec;
+        public final Class<? extends CompressionCodec> codec;
 
         Codec(Class<? extends CompressionCodec> codec) {
             this.codec = codec;

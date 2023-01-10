@@ -4,13 +4,13 @@
  */
 package ash.nazg.storage.jdbc;
 
+import ash.nazg.data.BinRec;
 import ash.nazg.metadata.AdapterMeta;
+import ash.nazg.metadata.DataHolder;
 import ash.nazg.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.OutputAdapter;
 import com.opencsv.CSVParser;
 import com.opencsv.CSVParserBuilder;
-import org.apache.spark.api.java.JavaRDD;
-import org.apache.spark.api.java.JavaRDDLike;
 import org.sparkproject.guava.collect.Iterators;
 
 import java.sql.Connection;
@@ -72,7 +72,7 @@ public class JDBCOutput extends OutputAdapter {
     }
 
     @Override
-    public void save(String path, JavaRDDLike rdd) {
+    public void save(String path, DataHolder rdd) {
         final String _dbDriver = dbDriver;
         final String _dbUrl = dbUrl;
         final String _dbUser = dbUser;
@@ -84,7 +84,7 @@ public class JDBCOutput extends OutputAdapter {
         final String[] _cols = columns;
         final String _table = path.split(":", 2)[1];
 
-        ((JavaRDD<Object>)rdd).mapPartitions(partition -> {
+        rdd.underlyingRdd.mapPartitions(partition -> {
             Connection conn = null;
             PreparedStatement ps = null;
             try {
@@ -114,12 +114,11 @@ public class JDBCOutput extends OutputAdapter {
                 ps = conn.prepareStatement(sb.toString());
                 int b = 0;
                 while (partition.hasNext()) {
-                    String v = String.valueOf(partition.next());
+                    BinRec row = partition.next();
 
-                    String[] row = parser.parseLine(v);
                     for (int i = 0, j = 1; i < _cols.length; i++) {
                         if (!_cols[i].equals("_")) {
-                            ps.setObject(j++, row[i]);
+                            ps.setObject(j++, row.asIs(_cols[i]));
                         }
                     }
                     ps.addBatch();

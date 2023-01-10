@@ -5,16 +5,15 @@
 package ash.nazg.storage.s3direct;
 
 import ash.nazg.metadata.AdapterMeta;
+import ash.nazg.metadata.DataHolder;
 import ash.nazg.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.hadoop.HadoopInput;
+import ash.nazg.storage.hadoop.InputFunction;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ListObjectsRequest;
 import com.amazonaws.services.s3.model.ObjectListing;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.google.common.collect.Lists;
-import org.apache.hadoop.io.Text;
-import org.apache.spark.api.java.JavaRDDLike;
-import org.apache.spark.api.java.function.FlatMapFunction;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -42,9 +41,7 @@ public class S3DirectInput extends HadoopInput {
                         .def(SUB_DIRS, "If set, any first-level subdirectories under designated path will" +
                                         " be split to different streams", Boolean.class, false,
                                 "By default, don't split")
-                        .def(MAX_RECORD_SIZE, "Max record size, bytes", Integer.class, 1048576,
-                                "By default, 1M")
-                        .def(SCHEMA, "Loose schema of input records (just column of field names," +
+                        .def(SCHEMA_DEFAULT, "Loose schema of input records (just column of field names," +
                                         " optionally with placeholders to skip some, denoted by underscores _)",
                                 String[].class, null, "By default, don't set the schema." +
                                         " Depending of source type, built-in schema may be used")
@@ -79,7 +76,7 @@ public class S3DirectInput extends HadoopInput {
     }
 
     @Override
-    public Map<String, JavaRDDLike> load(String s3path) {
+    public List<DataHolder> load(String s3path) {
         Matcher m = Pattern.compile(S3DirectStorage.PATH_PATTERN).matcher(s3path);
         m.matches();
         String bucket = m.group(1);
@@ -132,7 +129,7 @@ public class S3DirectInput extends HadoopInput {
             prefixMap.put("", discoveredFiles);
         }
 
-        Map<String, JavaRDDLike> ret = new HashMap<>();
+        List<DataHolder> ret = new ArrayList<>();
         for (Map.Entry<String, List<String>> ds : prefixMap.entrySet()) {
             List<String> files = ds.getValue();
 
@@ -144,11 +141,11 @@ public class S3DirectInput extends HadoopInput {
             List<List<String>> partFiles = new ArrayList<>();
             Lists.partition(files, groupSize).forEach(p -> partFiles.add(new ArrayList<>(p)));
 
-            FlatMapFunction<List<String>, Text> inputFunction = new S3DirectInputFunction(inputSchema, dsColumns, dsDelimiter.charAt(0), maxRecordSize,
+            InputFunction inputFunction = new S3DirectInputFunction(schemaDefault, dsColumns, dsDelimiter.charAt(0),
                     endpoint, region, accessKey, secretKey, bucket, tmpDir);
 
-            ret.put(ds.getKey(), context.parallelize(partFiles, partFiles.size())
-                    .flatMap(inputFunction));
+            ret.add(new DataHolder(context.parallelize(partFiles, partFiles.size())
+                    .flatMap(inputFunction.build()), ds.getKey()));
         }
 
         return ret;

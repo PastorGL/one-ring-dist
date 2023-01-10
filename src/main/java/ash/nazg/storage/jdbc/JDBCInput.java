@@ -4,13 +4,12 @@
  */
 package ash.nazg.storage.jdbc;
 
+import ash.nazg.data.BinRec;
 import ash.nazg.dist.InvalidConfigurationException;
 import ash.nazg.metadata.AdapterMeta;
+import ash.nazg.metadata.DataHolder;
 import ash.nazg.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.InputAdapter;
-import com.opencsv.CSVWriter;
-import org.apache.hadoop.io.Text;
-import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.rdd.JdbcRDD;
 import scala.reflect.ClassManifestFactory$;
@@ -18,11 +17,7 @@ import scala.runtime.AbstractFunction0;
 import scala.runtime.AbstractFunction1;
 
 import java.io.Serializable;
-import java.io.StringWriter;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.*;
 
 import static ash.nazg.storage.jdbc.JDBCStorage.*;
@@ -38,13 +33,13 @@ public class JDBCInput extends InputAdapter {
     private String dbUrl;
     private String dbUser;
     private String dbPassword;
-    private char delimiter;
+    private String delimiter;
 
     @Override
     protected AdapterMeta meta() {
         return new AdapterMeta("jdbc", "JDBC adapter for reading data from an SQL SELECT query against" +
                 " a configured database. Must use numeric boundaries for each part denoted by two ? placeholders," +
-                " for example, SELECT * FROM table WHERE integer_key BETWEEN ? AND ?",
+                " from 0 to " + PART_COUNT + ". For example, SELECT *, weeknum - 1 AS part_num FROM table WHERE part_num BETWEEN ? AND ?",
 
                 new DefinitionMetaBuilder()
                         .def(JDBC_DRIVER, "JDBC driver, fully qualified class name")
@@ -71,41 +66,18 @@ public class JDBCInput extends InputAdapter {
     }
 
     @Override
-    public Map<String, JavaRDDLike> load(String query) {
-        final char _inputDelimiter = delimiter;
+    public List<DataHolder> load(String query) {
+        final char _delimiter = delimiter.charAt(0);
 
-        return Collections.singletonMap("", new JdbcRDD<Object[]>(
+        return Collections.singletonList(new DataHolder(new JdbcRDD<BinRec>(
                         ctx.sc(),
                         new DbConnection(dbDriver, dbUrl, dbUser, dbPassword),
                         query.split(":", 2)[1],
                         0, Math.max(partCount, 0),
                         Math.max(partCount, 1),
-                        new RowMapper(),
-                        ClassManifestFactory$.MODULE$.fromClass(Object[].class)
-                ).toJavaRDD()
-                        .mapPartitions(it -> {
-                            List<Text> ret = new ArrayList<>();
-
-                            while (it.hasNext()) {
-                                Object[] v = it.next();
-
-                                String[] acc = new String[v.length];
-
-                                int i = 0;
-                                for (Object col : v) {
-                                    acc[i++] = String.valueOf(col);
-                                }
-
-                                StringWriter buffer = new StringWriter();
-                                CSVWriter writer = new CSVWriter(buffer, _inputDelimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER, CSVWriter.DEFAULT_ESCAPE_CHARACTER, "");
-                                writer.writeNext(acc, false);
-                                writer.close();
-
-                                ret.add(new Text(buffer.toString()));
-                            }
-
-                            return ret.iterator();
-                        })
+                        new BinRecRowMapper(),
+                        ClassManifestFactory$.MODULE$.fromClass(BinRec.class)
+                ).toJavaRDD(), null)
         );
     }
 
@@ -149,10 +121,20 @@ public class JDBCInput extends InputAdapter {
         }
     }
 
-    static class RowMapper extends AbstractFunction1<ResultSet, Object[]> implements Serializable {
+    static class BinRecRowMapper extends AbstractFunction1<ResultSet, BinRec> implements Serializable {
         @Override
-        public Object[] apply(ResultSet row) {
-            return JdbcRDD.resultSetToObjectArray(row);
+        public BinRec apply(ResultSet row) {
+            try {
+                ResultSetMetaData metaData = row.getMetaData();
+                int columnCount = metaData.getColumnCount();
+                Map<String, Object> map = new HashMap<>();
+                for (int i = 0; i < columnCount; i++) {
+                    map.put(metaData.getColumnName(i), row.getObject(i));
+                }
+                return new BinRec(map);
+            } catch (SQLException ignore) {
+                return null;
+            }
         }
     }
 }

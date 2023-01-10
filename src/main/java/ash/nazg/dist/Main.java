@@ -4,6 +4,7 @@
  */
 package ash.nazg.dist;
 
+import ash.nazg.metadata.DataHolder;
 import ash.nazg.storage.Adapters;
 import ash.nazg.storage.InputAdapter;
 import ash.nazg.storage.OutputAdapter;
@@ -12,16 +13,12 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.log4j.Logger;
 import org.apache.spark.SparkConf;
-import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.JavaSparkContext;
 import scala.Tuple2;
 
 import java.io.Reader;
 import java.io.StringReader;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class Main {
     private static final Logger LOG = Logger.getLogger(Main.class);
@@ -113,9 +110,9 @@ public class Main {
                 Map<String, Object> params = new HashMap<>(globalParams);
                 params.putAll(distTask.source.params);
                 inputAdapter.configure(params);
-                Map<String, JavaRDDLike> rdd = inputAdapter.load(distTask.source.path);
+                List<DataHolder> rdd = inputAdapter.load(distTask.source.path);
 
-                for (Map.Entry<String, JavaRDDLike> ds : rdd.entrySet()) {
+                for (DataHolder ds : rdd) {
                     OutputAdapter outputAdapter = Adapters.outputAdapter(to);
                     if (outputAdapter == null) {
                         throw new InvalidConfigurationException("Adapter named '" + to + "' not found");
@@ -124,8 +121,8 @@ public class Main {
                     outputAdapter.initialize(context);
                     params = new HashMap<>(globalParams);
                     params.putAll(distTask.dest.params);
-                    outputAdapter.configure(ds.getKey(), params);
-                    outputAdapter.save(distTask.dest.path, ds.getValue());
+                    outputAdapter.configure(params);
+                    outputAdapter.save(distTask.dest.path, ds);
                 }
             }
         } catch (Exception ex) {

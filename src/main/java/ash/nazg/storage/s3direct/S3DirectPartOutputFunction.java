@@ -6,6 +6,7 @@ package ash.nazg.storage.s3direct;
 
 import alex.mojaki.s3upload.MultiPartOutputStream;
 import alex.mojaki.s3upload.StreamTransferManager;
+import ash.nazg.data.BinRec;
 import ash.nazg.storage.hadoop.HadoopStorage;
 import ash.nazg.storage.hadoop.PartOutputFunction;
 import com.amazonaws.services.s3.AmazonS3;
@@ -15,7 +16,6 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.Text;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -46,7 +46,7 @@ public class S3DirectPartOutputFunction extends PartOutputFunction {
     }
 
     @Override
-    protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<Text> it) throws Exception {
+    protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<BinRec> it) throws Exception {
         String suffix = HadoopStorage.suffix(outputPath);
 
         Matcher m = Pattern.compile(S3DirectStorage.PATH_PATTERN).matcher(outputPath);

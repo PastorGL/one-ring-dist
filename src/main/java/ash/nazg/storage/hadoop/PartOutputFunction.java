@@ -4,13 +4,13 @@
  */
 package ash.nazg.storage.hadoop;
 
-import com.opencsv.CSVParser;
-import com.opencsv.CSVParserBuilder;
+import ash.nazg.data.BinRec;
+import com.opencsv.CSVWriter;
+import org.apache.commons.collections4.map.ListOrderedMap;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.SimpleGroup;
@@ -23,6 +23,7 @@ import org.apache.parquet.schema.Types;
 import org.apache.spark.api.java.function.Function2;
 
 import java.io.OutputStream;
+import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,7 +33,7 @@ import java.util.List;
 import static org.apache.parquet.schema.LogicalTypeAnnotation.stringType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 
-public class PartOutputFunction implements Function2<Integer, Iterator<Text>, Iterator<Void>> {
+public class PartOutputFunction implements Function2<Integer, Iterator<BinRec>, Iterator<Void>> {
     protected final String _name;
     protected final String outputPath;
     protected final HadoopStorage.Codec codec;
@@ -48,7 +49,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Text>, It
     }
 
     @Override
-    public Iterator<Void> call(Integer idx, Iterator<Text> it) {
+    public Iterator<Void> call(Integer idx, Iterator<BinRec> it) {
         Configuration conf = new Configuration();
 
         try {
@@ -56,7 +57,37 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Text>, It
 
             if (os != null) {
                 while (it.hasNext()) {
-                    os.write(String.valueOf(it.next()).getBytes(StandardCharsets.UTF_8));
+                    BinRec next = it.next();
+
+                    StringWriter stringBuffer = new StringWriter();
+
+                    ListOrderedMap<String, Object> map = next.asIs();
+                    if (map.get(0).isEmpty()) {
+                        stringBuffer.append(String.valueOf(map.getValue(0))).append("\n");
+                    } else {
+                        String[] acc;
+                        if (_columns != null) {
+                            acc = new String[_columns.length];
+                            for (int i = 0; i < _columns.length; i++) {
+                                String col = _columns[i];
+                                acc[i] = next.asString(col);
+                            }
+                        } else {
+                            int size = map.size();
+                            acc = new String[size];
+                            for (int i = 0; i < size; i++) {
+                                String col = map.get(i);
+                                acc[i] = next.asString(col);
+                            }
+                        }
+
+                        CSVWriter writer = new CSVWriter(stringBuffer, _delimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
+                                CSVWriter.DEFAULT_ESCAPE_CHARACTER, CSVWriter.DEFAULT_LINE_END);
+                        writer.writeNext(acc, false);
+                        writer.close();
+                    }
+
+                    os.write(stringBuffer.toString().getBytes(StandardCharsets.UTF_8));
                 }
 
                 os.close();
@@ -70,7 +101,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Text>, It
         return Collections.emptyIterator();
     }
 
-    protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<Text> it) throws Exception {
+    protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<BinRec> it) throws Exception {
         String suffix = HadoopStorage.suffix(outputPath);
 
         String partName = (_name.isEmpty() ? "" : ("/" + _name)) + "/" + String.format("part-%05d", idx);
@@ -97,38 +128,51 @@ public class PartOutputFunction implements Function2<Integer, Iterator<Text>, It
         }
     }
 
-    protected void writeToParquetFile(Configuration conf, Path partPath, Iterator<Text> it) throws Exception {
-        List<Type> types = new ArrayList<>();
-        for (String col : _columns) {
-            types.add(Types.primitive(BINARY, Type.Repetition.REQUIRED).as(stringType()).named(col));
-        }
-        MessageType schema = new MessageType(_name, types);
-
-        ExampleParquetWriter.Builder builder = ExampleParquetWriter.builder(partPath)
-                .withConf(conf)
-                .withType(schema)
-                .withPageWriteChecksumEnabled(false);
-        if (codec != HadoopStorage.Codec.NONE) {
-            builder.withCompressionCodec(CompressionCodecName.fromCompressionCodec(codec.codec));
-        }
-        ParquetWriter<Group> writer = builder.build();
-
-        CSVParser parser = new CSVParserBuilder().withSeparator(_delimiter).build();
-        int numCols = _columns.length;
+    protected void writeToParquetFile(Configuration conf, Path partPath, Iterator<BinRec> it) throws Exception {
+        boolean first = true;
+        ParquetWriter<Group> writer = null;
+        MessageType schema = null;
+        String[] columns = null;
         while (it.hasNext()) {
-            String line = String.valueOf(it.next());
+            BinRec line = it.next();
 
-            String[] ll = parser.parseLine(line);
+            if (first) {
+                List<Type> types = new ArrayList<>();
+                if (_columns == null) {
+                    ListOrderedMap<String, Object> map = line.asIs();
+                    columns = map.keyList().toArray(new String[0]);
+                } else {
+                    columns = _columns;
+                }
+                for (String col : columns) {
+                    types.add(Types.primitive(BINARY, Type.Repetition.REQUIRED).as(stringType()).named(col));
+                }
+                schema = new MessageType(_name, types);
+
+                ExampleParquetWriter.Builder builder = ExampleParquetWriter.builder(partPath)
+                        .withConf(conf)
+                        .withType(schema)
+                        .withPageWriteChecksumEnabled(false);
+                if (codec != HadoopStorage.Codec.NONE) {
+                    builder.withCompressionCodec(CompressionCodecName.fromCompressionCodec(codec.codec));
+                }
+                writer = builder.build();
+
+                first = false;
+            }
+
             Group group = new SimpleGroup(schema);
 
-            for (int i = 0; i < numCols; i++) {
-                group.add(i, ll[i]);
+            for (String col : columns) {
+                group.add(col, line.asString(col));
             }
 
             writer.write(group);
         }
 
-        writer.close();
+        if (writer != null) {
+            writer.close();
+        }
     }
 
     protected OutputStream writeToTextFile(Configuration conf, OutputStream outputStream) throws Exception {

@@ -4,13 +4,13 @@
  */
 package ash.nazg.storage.s3direct;
 
+import ash.nazg.data.BinRec;
 import ash.nazg.dist.InvalidConfigurationException;
 import ash.nazg.metadata.AdapterMeta;
+import ash.nazg.metadata.DataHolder;
 import ash.nazg.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.hadoop.HadoopOutput;
 import ash.nazg.storage.hadoop.HadoopStorage;
-import org.apache.hadoop.io.Text;
-import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.function.Function2;
 
 import java.util.Iterator;
@@ -70,10 +70,10 @@ public class S3DirectOutput extends HadoopOutput {
 
     @Override
     @SuppressWarnings("unchecked")
-    public void save(String path, JavaRDDLike rdd) {
-        Function2<Integer, Iterator<Text>, Iterator<Void>> outputFunction = new S3DirectPartOutputFunction(dsName, path, codec, columns, delimiter,
+    public void save(String path, DataHolder rdd) {
+        Function2<Integer, Iterator<BinRec>, Iterator<Void>> outputFunction = new S3DirectPartOutputFunction(rdd.sub, path, codec, columns, delimiter.charAt(0),
                 endpoint, region, accessKey, secretKey, tmpDir, contentType);
 
-        rdd.mapPartitionsWithIndex(outputFunction, true).count();
+        rdd.underlyingRdd.mapPartitionsWithIndex(outputFunction, true).count();
     }
 }

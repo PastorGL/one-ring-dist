@@ -6,8 +6,9 @@ package ash.nazg.storage;
 
 import ash.nazg.dist.InvalidConfigurationException;
 import ash.nazg.metadata.AdapterResolver;
-import org.apache.spark.api.java.JavaRDDLike;
+import ash.nazg.metadata.DataHolder;
 
+import java.util.List;
 import java.util.Map;
 
 public abstract class InputAdapter extends StorageAdapter {
@@ -17,5 +18,5 @@ public abstract class InputAdapter extends StorageAdapter {
         configure();
     }
 
-    public abstract Map<String, JavaRDDLike> load(String path) throws Exception;
+    public abstract List<DataHolder> load(String path) throws Exception;
 }

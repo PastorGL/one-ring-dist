@@ -4,14 +4,16 @@
  */
 package ash.nazg.storage.s3direct;
 
-import ash.nazg.storage.hadoop.HadoopStorage;
-import ash.nazg.storage.hadoop.InputFunction;
+import ash.nazg.storage.RecordStream;
+import ash.nazg.storage.hadoop.*;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.util.IOUtils;
+import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.compress.CompressionCodec;
 
 import javax.xml.bind.DatatypeConverter;
 import java.io.InputStream;
@@ -26,8 +28,8 @@ public class S3DirectInputFunction extends InputFunction {
     private final String _bucket;
     private final Path _tmp;
 
-    public S3DirectInputFunction(String[] schema, String[] columns, char delimiter, int bufferSize, String endpoint, String region, String accessKey, String secretKey, String bucket, String tmp) {
-        super(schema, columns, delimiter, bufferSize);
+    public S3DirectInputFunction(String[] schema, String[] columns, char delimiter, String endpoint, String region, String accessKey, String secretKey, String bucket, String tmp) {
+        super(schema, columns, delimiter);
 
         this.endpoint = endpoint;
         this.region = region;
@@ -39,7 +41,7 @@ public class S3DirectInputFunction extends InputFunction {
     }
 
     @Override
-    protected InputStream decorateInputStream(Configuration conf, String inputFile) throws Exception {
+    protected RecordStream recordStream(Configuration conf, String inputFile) throws Exception {
         String suffix = HadoopStorage.suffix(inputFile);
 
         AmazonS3 _s3 = S3DirectStorage.get(endpoint, region, accessKey, secretKey);
@@ -61,11 +63,23 @@ public class S3DirectInputFunction extends InputFunction {
                 tmpFs.deleteOnExit(localPath);
             }
 
-            inputStream = getParquetInputStream(conf, localPath.toString());
+            return new ParquetRecordStream(conf, localPath.toString(), _columns);
         } else {
-            inputStream = getTextInputStream(conf, inputStream, HadoopStorage.Codec.lookup(suffix));
-        }
+            HadoopStorage.Codec codec = HadoopStorage.Codec.lookup(suffix);
 
-        return inputStream;
+            Class<? extends CompressionCodec> codecClass = codec.codec;
+            if (codecClass != null) {
+                CompressionCodec cc = codecClass.newInstance();
+                ((Configurable) cc).setConf(conf);
+
+                inputStream = cc.createInputStream(inputStream);
+            }
+
+            if ((_schema != null) || (_columns != null)) {
+                return new DelimitedTextRecordStream(inputStream, _delimiter, _schema, _columns);
+            } else {
+                return new PlainTextRecordStream(inputStream);
+            }
+        }
     }
 }

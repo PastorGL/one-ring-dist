@@ -6,6 +6,7 @@ package ash.nazg.storage.hadoop;
 
 import ash.nazg.dist.InvalidConfigurationException;
 import ash.nazg.metadata.AdapterMeta;
+import ash.nazg.metadata.DataHolder;
 import ash.nazg.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.InputAdapter;
 import com.google.common.collect.Lists;
@@ -14,9 +15,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
-import org.apache.hadoop.io.Text;
-import org.apache.spark.api.java.JavaRDDLike;
-import org.apache.spark.api.java.function.FlatMapFunction;
 import scala.Tuple2;
 
 import java.util.*;
@@ -25,8 +23,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class HadoopInput extends InputAdapter {
-    protected static final String MAX_RECORD_SIZE = "max_record_size";
-    protected static final String SCHEMA = "schema";
+    protected static final String SCHEMA_DEFAULT = "schema_default";
+    protected static final String SCHEMA_FROM_FILE = "schema_from_file";
     protected static final String COLUMNS = "columns";
     protected static final String DELIMITER = "delimiter";
     protected static final String PART_COUNT = "part_count";
@@ -35,29 +33,28 @@ public class HadoopInput extends InputAdapter {
     protected boolean subs;
 
     protected int partCount;
-    protected String[] inputSchema;
+    protected String[] schemaDefault;
+    protected boolean schemaFromFile;
     protected String[] dsColumns;
     protected String dsDelimiter;
-
-    protected int maxRecordSize;
 
     protected int numOfExecutors;
 
     @Override
     protected AdapterMeta meta() {
         return new AdapterMeta("hadoop", "Default input adapter that utilizes available Hadoop FileSystems." +
-                " Supports text, text-based columnar (CSV/TSV), and Parquet files, optionally compressed",
+                " Supports plain text, delimited text (CSV/TSV), and Parquet files, optionally compressed",
 
                 new DefinitionMetaBuilder()
                         .def(SUB_DIRS, "If set, any first-level subdirectories under designated path will" +
                                         " be split to different streams", Boolean.class, false,
                                 "By default, don't split")
-                        .def(MAX_RECORD_SIZE, "Max record size, bytes", Integer.class, 1048576,
-                                "By default, 1M")
-                        .def(SCHEMA, "Loose schema of input records (just column of field names," +
+                        .def(SCHEMA_DEFAULT, "Loose schema of input records (just column of field names," +
                                         " optionally with placeholders to skip some, denoted by underscores _)",
                                 String[].class, null, "By default, don't set the schema." +
                                         " Depending of source file type, built-in schema may be used")
+                        .def(SCHEMA_FROM_FILE, "Try to read schema from file (1st line of delimited text or Parquet metadata)",
+                                Boolean.class, true, "By default, do try")
                         .def(COLUMNS, "Columns to select from the schema",
                                 String[].class, null, "By default, don't select columns from the schema")
                         .def(DELIMITER, "Record column delimiter",
@@ -72,12 +69,14 @@ public class HadoopInput extends InputAdapter {
     protected void configure() throws InvalidConfigurationException {
         subs = resolver.get(SUB_DIRS);
 
-        inputSchema = resolver.get(SCHEMA);
-
-        dsColumns = resolver.get(COLUMNS);
         dsDelimiter = resolver.get(DELIMITER);
 
-        maxRecordSize = resolver.get(MAX_RECORD_SIZE);
+        schemaFromFile = resolver.get(SCHEMA_FROM_FILE);
+        if (!schemaFromFile) {
+            schemaDefault = resolver.get(SCHEMA_DEFAULT);
+        }
+
+        dsColumns = resolver.get(COLUMNS);
 
         partCount = Math.max(resolver.get(PART_COUNT), 1);
 
@@ -91,7 +90,7 @@ public class HadoopInput extends InputAdapter {
     }
 
     @Override
-    public Map<String, JavaRDDLike> load(String globPattern) {
+    public List<DataHolder> load(String globPattern) {
         // path, regex
         List<Tuple2<String, String>> splits = HadoopStorage.srcDestGroup(globPattern);
 
@@ -159,7 +158,7 @@ public class HadoopInput extends InputAdapter {
             prefixMap.put("", discoveredFiles.stream().map(Tuple2::_2).collect(Collectors.toList()));
         }
 
-        Map<String, JavaRDDLike> ret = new HashMap<>();
+        List<DataHolder> ret = new ArrayList<>();
         for (Map.Entry<String, List<String>> ds : prefixMap.entrySet()) {
             List<String> files = ds.getValue();
 
@@ -171,10 +170,9 @@ public class HadoopInput extends InputAdapter {
             List<List<String>> partNum = new ArrayList<>();
             Lists.partition(files, groupSize).forEach(p -> partNum.add(new ArrayList<>(p)));
 
-            FlatMapFunction<List<String>, Text> inputFunction = new InputFunction(inputSchema, dsColumns, dsDelimiter.charAt(0), maxRecordSize);
-
-            return Collections.singletonMap(ds.getKey(), context.parallelize(partNum, partNum.size())
-                    .flatMap(inputFunction));
+            InputFunction inputFunction = new InputFunction(schemaDefault, dsColumns, dsDelimiter.charAt(0));
+            return Collections.singletonList(new DataHolder(context.parallelize(partNum, partNum.size())
+                    .flatMap(inputFunction.build()), ds.getKey()));
         }
 
         return ret;

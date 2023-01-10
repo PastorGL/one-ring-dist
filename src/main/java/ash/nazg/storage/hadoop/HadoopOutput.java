@@ -4,12 +4,12 @@
  */
 package ash.nazg.storage.hadoop;
 
+import ash.nazg.data.BinRec;
 import ash.nazg.dist.InvalidConfigurationException;
+import ash.nazg.metadata.AdapterMeta;
+import ash.nazg.metadata.DataHolder;
 import ash.nazg.metadata.DefinitionMetaBuilder;
 import ash.nazg.storage.OutputAdapter;
-import ash.nazg.metadata.AdapterMeta;
-import org.apache.hadoop.io.Text;
-import org.apache.spark.api.java.JavaRDDLike;
 import org.apache.spark.api.java.function.Function2;
 
 import java.util.Iterator;
@@ -21,7 +21,7 @@ public class HadoopOutput extends OutputAdapter {
 
     protected HadoopStorage.Codec codec;
     protected String[] columns;
-    protected char delimiter;
+    protected String delimiter;
 
     @Override
     protected AdapterMeta meta() {
@@ -47,9 +47,9 @@ public class HadoopOutput extends OutputAdapter {
     }
 
     @Override
-    public void save(String path, JavaRDDLike rdd) {
-        Function2<Integer, Iterator<Text>, Iterator<Void>> outputFunction = new PartOutputFunction(dsName, path, codec, columns, delimiter);
+    public void save(String path, DataHolder rdd) {
+        Function2<Integer, Iterator<BinRec>, Iterator<Void>> outputFunction = new PartOutputFunction(rdd.sub, path, codec, columns, delimiter.charAt(0));
 
-        rdd.mapPartitionsWithIndex(outputFunction, true).count();
+        rdd.underlyingRdd.mapPartitionsWithIndex(outputFunction, true).count();
     }
 }
