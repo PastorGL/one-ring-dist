@@ -18,7 +18,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,7 +45,7 @@ public class S3DirectPartOutputFunction extends PartOutputFunction {
     }
 
     @Override
-    protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<BinRec> it) throws Exception {
+    protected void writePart(Configuration conf, int idx, Iterator<BinRec> it) throws Exception {
         String suffix = HadoopStorage.suffix(outputPath);
 
         Matcher m = Pattern.compile(S3DirectStorage.PATH_PATTERN).matcher(outputPath);
@@ -95,10 +94,8 @@ public class S3DirectPartOutputFunction extends PartOutputFunction {
             }
             outputStream.close();
             tmpFs.delete(tmpPath, false);
-
-            return null;
         } else {
-            return writeToTextFile(conf, outputStream);
+            writeToTextFile(conf, outputStream, it);
         }
     }
 }

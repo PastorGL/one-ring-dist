@@ -14,11 +14,9 @@ import org.apache.spark.api.java.function.Function2;
 
 import java.util.Iterator;
 
-public class HadoopOutput extends OutputAdapter {
-    protected static final String CODEC = "codec";
-    protected static final String COLUMNS = "columns";
-    protected static final String DELIMITER = "delimiter";
+import static ash.nazg.storage.hadoop.HadoopStorage.*;
 
+public class HadoopOutput extends OutputAdapter {
     protected HadoopStorage.Codec codec;
     protected String[] columns;
     protected String delimiter;

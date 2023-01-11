@@ -81,8 +81,4 @@ public class AdapterResolver {
 
         throw new InvalidConfigurationException("Improper type '" + clazz.getName() + "' of a parameter " + key + " of " + descr);
     }
-
-    public boolean containsKey(String key) {
-        return holder.containsKey(key);
-    }
 }

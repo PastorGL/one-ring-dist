@@ -19,11 +19,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class InputFunction implements Serializable {
-    final protected String[] _schema;
+    protected final boolean _fromFile;
+    protected final String[] _schema;
     protected String[] _columns;
     final protected char _delimiter;
 
-    public InputFunction(String[] schema, String[] columns, char delimiter) {
+    public InputFunction(boolean fromFile, String[] schema, String[] columns, char delimiter) {
+        _fromFile = fromFile;
         _schema = schema;
         _columns = columns;
         _delimiter = delimiter;
@@ -76,8 +78,8 @@ public class InputFunction implements Serializable {
                 inputStream = cc.createInputStream(inputStream);
             }
 
-            if ((_schema != null) || (_columns != null)) {
-                return new DelimitedTextRecordStream(inputStream, _delimiter, _schema, _columns);
+            if (_fromFile || (_schema != null) || (_columns != null)) {
+                return new DelimitedTextRecordStream(inputStream, _delimiter, _fromFile, _schema, _columns);
             } else {
                 return new PlainTextRecordStream(inputStream);
             }

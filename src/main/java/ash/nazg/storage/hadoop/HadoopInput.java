@@ -22,14 +22,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-public class HadoopInput extends InputAdapter {
-    protected static final String SCHEMA_DEFAULT = "schema_default";
-    protected static final String SCHEMA_FROM_FILE = "schema_from_file";
-    protected static final String COLUMNS = "columns";
-    protected static final String DELIMITER = "delimiter";
-    protected static final String PART_COUNT = "part_count";
-    protected static final String SUB_DIRS = "split_sub_dirs";
+import static ash.nazg.storage.hadoop.HadoopStorage.*;
 
+public class HadoopInput extends InputAdapter {
     protected boolean subs;
 
     protected int partCount;
@@ -42,23 +37,23 @@ public class HadoopInput extends InputAdapter {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("hadoop", "Default input adapter that utilizes available Hadoop FileSystems." +
+        return new AdapterMeta("hadoop", "File-based input adapter that utilizes available Hadoop FileSystems." +
                 " Supports plain text, delimited text (CSV/TSV), and Parquet files, optionally compressed",
 
                 new DefinitionMetaBuilder()
                         .def(SUB_DIRS, "If set, any first-level subdirectories under designated path will" +
                                         " be split to different streams", Boolean.class, false,
                                 "By default, don't split")
-                        .def(SCHEMA_DEFAULT, "Loose schema of input records (just column of field names," +
+                        .def(SCHEMA_FROM_FILE, "Try to read schema from file (1st line of delimited text)",
+                                Boolean.class, true, "By default, do try")
+                        .def(SCHEMA_DEFAULT, "Loose schema for delimited text (just column names," +
                                         " optionally with placeholders to skip some, denoted by underscores _)",
                                 String[].class, null, "By default, don't set the schema." +
                                         " Depending of source file type, built-in schema may be used")
-                        .def(SCHEMA_FROM_FILE, "Try to read schema from file (1st line of delimited text or Parquet metadata)",
-                                Boolean.class, true, "By default, do try")
+                        .def(DELIMITER, "Column delimiter for delimited text",
+                                String.class, "\t", "By default, tabulation character")
                         .def(COLUMNS, "Columns to select from the schema",
                                 String[].class, null, "By default, don't select columns from the schema")
-                        .def(DELIMITER, "Record column delimiter",
-                                String.class, "\t", "By default, tabulation character")
                         .def(PART_COUNT, "Desired number of parts",
                                 Integer.class, 1, "By default, one part")
                         .build()
@@ -170,9 +165,9 @@ public class HadoopInput extends InputAdapter {
             List<List<String>> partNum = new ArrayList<>();
             Lists.partition(files, groupSize).forEach(p -> partNum.add(new ArrayList<>(p)));
 
-            InputFunction inputFunction = new InputFunction(schemaDefault, dsColumns, dsDelimiter.charAt(0));
+            InputFunction inputFunction = new InputFunction(schemaFromFile, schemaDefault, dsColumns, dsDelimiter.charAt(0));
             return Collections.singletonList(new DataHolder(context.parallelize(partNum, partNum.size())
-                    .flatMap(inputFunction.build()), ds.getKey()));
+                    .flatMap(inputFunction.build()).repartition(partCount), ds.getKey()));
         }
 
         return ret;

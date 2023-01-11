@@ -23,6 +23,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static ash.nazg.storage.hadoop.HadoopStorage.*;
 import static ash.nazg.storage.s3direct.S3DirectStorage.*;
 
 @SuppressWarnings("unused")
@@ -38,13 +39,6 @@ public class S3DirectInput extends HadoopInput {
         return new AdapterMeta("s3direct", "Input adapter for any S3-compatible storage, based on Hadoop adapter",
 
                 new DefinitionMetaBuilder()
-                        .def(SUB_DIRS, "If set, any first-level subdirectories under designated path will" +
-                                        " be split to different streams", Boolean.class, false,
-                                "By default, don't split")
-                        .def(SCHEMA_DEFAULT, "Loose schema of input records (just column of field names," +
-                                        " optionally with placeholders to skip some, denoted by underscores _)",
-                                String[].class, null, "By default, don't set the schema." +
-                                        " Depending of source type, built-in schema may be used")
                         .def(S3D_ACCESS_KEY, "S3 access key", null, "By default, try to discover" +
                                 " the key from client's standard credentials chain")
                         .def(S3D_SECRET_KEY, "S3 secret key", null, "By default, try to discover" +
@@ -53,10 +47,19 @@ public class S3DirectInput extends HadoopInput {
                                 " the endpoint from client's standard profile")
                         .def(S3D_REGION, "S3 region", null, "By default, try to discover" +
                                 " the region from client's standard profile")
+                        .def(SUB_DIRS, "If set, any first-level subdirectories under designated path will" +
+                                        " be split to different streams", Boolean.class, false,
+                                "By default, don't split")
+                        .def(SCHEMA_FROM_FILE, "Try to read schema from file (1st line of delimited text)",
+                                Boolean.class, true, "By default, do try")
+                        .def(SCHEMA_DEFAULT, "Loose schema for delimited text (just column names," +
+                                        " optionally with placeholders to skip some, denoted by underscores _)",
+                                String[].class, null, "By default, don't set the schema." +
+                                        " Depending of source file type, built-in schema may be used")
+                        .def(DELIMITER, "Column delimiter for delimited text",
+                                String.class, "\t", "By default, tabulation character")
                         .def(COLUMNS, "Columns to select from the schema",
                                 String[].class, null, "By default, don't select columns from the schema")
-                        .def(DELIMITER, "Record column delimiter",
-                                String.class, "\t", "By default, tabulation character")
                         .def(PART_COUNT, "Desired number of parts",
                                 Integer.class, 1, "By default, one part")
                         .build()
@@ -141,11 +144,11 @@ public class S3DirectInput extends HadoopInput {
             List<List<String>> partFiles = new ArrayList<>();
             Lists.partition(files, groupSize).forEach(p -> partFiles.add(new ArrayList<>(p)));
 
-            InputFunction inputFunction = new S3DirectInputFunction(schemaDefault, dsColumns, dsDelimiter.charAt(0),
+            InputFunction inputFunction = new S3DirectInputFunction(schemaFromFile, schemaDefault, dsColumns, dsDelimiter.charAt(0),
                     endpoint, region, accessKey, secretKey, bucket, tmpDir);
 
             ret.add(new DataHolder(context.parallelize(partFiles, partFiles.size())
-                    .flatMap(inputFunction.build()), ds.getKey()));
+                    .flatMap(inputFunction.build()).repartition(partCount), ds.getKey()));
         }
 
         return ret;

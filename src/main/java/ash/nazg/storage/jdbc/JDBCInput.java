@@ -24,9 +24,6 @@ import static ash.nazg.storage.jdbc.JDBCStorage.*;
 
 @SuppressWarnings("unused")
 public class JDBCInput extends InputAdapter {
-    private static final String DELIMITER = "delimiter";
-    private static final String PART_COUNT = "part_count";
-
     private JavaSparkContext ctx;
     private int partCount;
     private String dbDriver;
@@ -48,8 +45,6 @@ public class JDBCInput extends InputAdapter {
                         .def(JDBC_PASSWORD, "JDBC connection password", null, "By default, use no password")
                         .def(PART_COUNT, "Desired number of parts",
                                 Integer.class, 1, "By default, one part")
-                        .def(DELIMITER, "Record column delimiter",
-                                String.class, "\t", "By default, tabulation character")
                         .build()
         );
     }
@@ -62,13 +57,10 @@ public class JDBCInput extends InputAdapter {
         dbPassword = resolver.get(JDBC_PASSWORD);
 
         partCount = resolver.get(PART_COUNT);
-        delimiter = resolver.get(DELIMITER);
     }
 
     @Override
     public List<DataHolder> load(String query) {
-        final char _delimiter = delimiter.charAt(0);
-
         return Collections.singletonList(new DataHolder(new JdbcRDD<BinRec>(
                         ctx.sc(),
                         new DbConnection(dbDriver, dbUrl, dbUser, dbPassword),

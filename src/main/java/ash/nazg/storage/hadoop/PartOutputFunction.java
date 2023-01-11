@@ -53,45 +53,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<BinRec>, 
         Configuration conf = new Configuration();
 
         try {
-            OutputStream os = createOutputStream(conf, idx, it);
-
-            if (os != null) {
-                while (it.hasNext()) {
-                    BinRec next = it.next();
-
-                    StringWriter stringBuffer = new StringWriter();
-
-                    ListOrderedMap<String, Object> map = next.asIs();
-                    if (map.get(0).isEmpty()) {
-                        stringBuffer.append(String.valueOf(map.getValue(0))).append("\n");
-                    } else {
-                        String[] acc;
-                        if (_columns != null) {
-                            acc = new String[_columns.length];
-                            for (int i = 0; i < _columns.length; i++) {
-                                String col = _columns[i];
-                                acc[i] = next.asString(col);
-                            }
-                        } else {
-                            int size = map.size();
-                            acc = new String[size];
-                            for (int i = 0; i < size; i++) {
-                                String col = map.get(i);
-                                acc[i] = next.asString(col);
-                            }
-                        }
-
-                        CSVWriter writer = new CSVWriter(stringBuffer, _delimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
-                                CSVWriter.DEFAULT_ESCAPE_CHARACTER, CSVWriter.DEFAULT_LINE_END);
-                        writer.writeNext(acc, false);
-                        writer.close();
-                    }
-
-                    os.write(stringBuffer.toString().getBytes(StandardCharsets.UTF_8));
-                }
-
-                os.close();
-            }
+            writePart(conf, idx, it);
         } catch (Exception e) {
             System.err.println("Exception while writing records: " + e.getMessage());
             e.printStackTrace(System.err);
@@ -101,7 +63,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<BinRec>, 
         return Collections.emptyIterator();
     }
 
-    protected OutputStream createOutputStream(Configuration conf, int idx, Iterator<BinRec> it) throws Exception {
+    protected void writePart(Configuration conf, int idx, Iterator<BinRec> it) throws Exception {
         String suffix = HadoopStorage.suffix(outputPath);
 
         String partName = (_name.isEmpty() ? "" : ("/" + _name)) + "/" + String.format("part-%05d", idx);
@@ -110,9 +72,12 @@ public class PartOutputFunction implements Function2<Integer, Iterator<BinRec>, 
             partName = outputPath.substring(0, outputPath.lastIndexOf(".")) + partName
                     + ((codec != HadoopStorage.Codec.NONE) ? "." + codec.name().toLowerCase() : "") + ".parquet";
 
-            writeToParquetFile(conf, new Path(partName), it);
+            Path partPath = new Path(partName);
+            FileSystem outputFs = partPath.getFileSystem(conf);
+            outputFs.setVerifyChecksum(false);
+            outputFs.setWriteChecksum(false);
 
-            return null;
+            writeToParquetFile(conf, partPath, it);
         } else {
             partName = outputPath + partName
                     + ((codec != HadoopStorage.Codec.NONE) ? "." + codec.name().toLowerCase() : "");
@@ -124,7 +89,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<BinRec>, 
             outputFs.setWriteChecksum(false);
             OutputStream outputStream = outputFs.create(partPath);
 
-            return writeToTextFile(conf, outputStream);
+            writeToTextFile(conf, outputStream, it);
         }
     }
 
@@ -153,6 +118,7 @@ public class PartOutputFunction implements Function2<Integer, Iterator<BinRec>, 
                         .withConf(conf)
                         .withType(schema)
                         .withPageWriteChecksumEnabled(false);
+
                 if (codec != HadoopStorage.Codec.NONE) {
                     builder.withCompressionCodec(CompressionCodecName.fromCompressionCodec(codec.codec));
                 }
@@ -175,15 +141,47 @@ public class PartOutputFunction implements Function2<Integer, Iterator<BinRec>, 
         }
     }
 
-    protected OutputStream writeToTextFile(Configuration conf, OutputStream outputStream) throws Exception {
+    protected void writeToTextFile(Configuration conf, OutputStream outputStream, Iterator<BinRec> it) throws Exception {
         if (codec != HadoopStorage.Codec.NONE) {
             Class<? extends CompressionCodec> cc = codec.codec;
             CompressionCodec codec = cc.newInstance();
             ((Configurable) codec).setConf(conf);
 
-            return codec.createOutputStream(outputStream);
-        } else {
-            return outputStream;
+            outputStream = codec.createOutputStream(outputStream);
+        }
+
+        while (it.hasNext()) {
+            BinRec next = it.next();
+
+            StringWriter stringBuffer = new StringWriter();
+
+            ListOrderedMap<String, Object> map = next.asIs();
+            if (map.get(0).isEmpty()) {
+                stringBuffer.append(String.valueOf(map.getValue(0))).append("\n");
+            } else {
+                String[] acc;
+                if (_columns != null) {
+                    acc = new String[_columns.length];
+                    for (int i = 0; i < _columns.length; i++) {
+                        String col = _columns[i];
+                        acc[i] = next.asString(col);
+                    }
+                } else {
+                    int size = map.size();
+                    acc = new String[size];
+                    for (int i = 0; i < size; i++) {
+                        String col = map.get(i);
+                        acc[i] = next.asString(col);
+                    }
+                }
+
+                CSVWriter writer = new CSVWriter(stringBuffer, _delimiter, CSVWriter.DEFAULT_QUOTE_CHARACTER,
+                        CSVWriter.DEFAULT_ESCAPE_CHARACTER, CSVWriter.DEFAULT_LINE_END);
+                writer.writeNext(acc, false);
+                writer.close();
+            }
+
+            outputStream.write(stringBuffer.toString().getBytes(StandardCharsets.UTF_8));
         }
     }
 }

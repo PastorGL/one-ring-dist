@@ -15,12 +15,11 @@ import org.apache.spark.api.java.function.Function2;
 
 import java.util.Iterator;
 
+import static ash.nazg.storage.hadoop.HadoopStorage.*;
 import static ash.nazg.storage.s3direct.S3DirectStorage.*;
 
 @SuppressWarnings("unused")
 public class S3DirectOutput extends HadoopOutput {
-    static final String CONTENT_TYPE = "content.type";
-
     private String accessKey;
     private String secretKey;
 

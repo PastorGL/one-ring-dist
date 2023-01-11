@@ -25,8 +25,20 @@ public class DelimitedTextRecordStream implements RecordStream {
     private final CSVParser parser;
     private final List<String> columns;
 
-    public DelimitedTextRecordStream(InputStream input, char delimiter, String[] _schema, String[] _columns) {
+    public DelimitedTextRecordStream(InputStream input, char delimiter, boolean _fromFile, String[] _schema, String[] _columns) {
         int[] columnOrder;
+
+        this.reader = new BufferedReader(new InputStreamReader(input));
+        this.parser = new CSVParserBuilder().withSeparator(delimiter).build();
+        if (_fromFile) {
+            try {
+                String line = reader.readLine();
+
+                if (line != null) {
+                    _schema = parser.parseLine(line);
+                }
+            } catch (Exception ignore) {}
+        }
 
         if (_schema != null) {
             if (_columns == null) {
@@ -54,8 +66,6 @@ public class DelimitedTextRecordStream implements RecordStream {
 
         this.columns = Arrays.asList(_columns);
         this.order = columnOrder;
-        this.reader = new BufferedReader(new InputStreamReader(input));
-        this.parser = new CSVParserBuilder().withSeparator(delimiter).build();
     }
 
     public BinRec ensureRecord() throws IOException {

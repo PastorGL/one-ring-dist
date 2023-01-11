@@ -11,11 +11,12 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 
 public class S3DirectStorage {
+    public static final String S3D_ACCESS_KEY = "access_key";
+    public static final String S3D_SECRET_KEY = "secret_key";
+    public static final String S3D_ENDPOINT = "endpoint";
+    public static final String S3D_REGION = "region";
+    public static final String CONTENT_TYPE = "content_type";
     public static final String PATH_PATTERN = "^s3d://([^/]+)/(.+)";
-    static final String S3D_ACCESS_KEY = "access_key";
-    static final String S3D_SECRET_KEY = "secret_key";
-    static final String S3D_ENDPOINT = "endpoint";
-    static final String S3D_REGION = "region";
 
     public static AmazonS3 get(String endpoint, String region, String accessKey, String secretKey) {
         AmazonS3ClientBuilder s3ClientBuilder = AmazonS3ClientBuilder.standard();

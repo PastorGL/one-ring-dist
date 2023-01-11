@@ -5,6 +5,7 @@
 package ash.nazg.storage.jdbc;
 
 public class JDBCStorage {
+    public static final String PART_COUNT = "part_count";
     public static final String JDBC_DRIVER = "driver";
     public static final String JDBC_URL = "url";
     public static final String JDBC_USER = "user";

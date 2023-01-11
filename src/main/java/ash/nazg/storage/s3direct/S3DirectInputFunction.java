@@ -28,8 +28,8 @@ public class S3DirectInputFunction extends InputFunction {
     private final String _bucket;
     private final Path _tmp;
 
-    public S3DirectInputFunction(String[] schema, String[] columns, char delimiter, String endpoint, String region, String accessKey, String secretKey, String bucket, String tmp) {
-        super(schema, columns, delimiter);
+    public S3DirectInputFunction(boolean fromFile, String[] schema, String[] columns, char delimiter, String endpoint, String region, String accessKey, String secretKey, String bucket, String tmp) {
+        super(fromFile, schema, columns, delimiter);
 
         this.endpoint = endpoint;
         this.region = region;
@@ -76,7 +76,7 @@ public class S3DirectInputFunction extends InputFunction {
             }
 
             if ((_schema != null) || (_columns != null)) {
-                return new DelimitedTextRecordStream(inputStream, _delimiter, _schema, _columns);
+                return new DelimitedTextRecordStream(inputStream, _delimiter, _fromFile, _schema, _columns);
             } else {
                 return new PlainTextRecordStream(inputStream);
             }
