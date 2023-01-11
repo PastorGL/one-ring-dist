@@ -193,13 +193,16 @@ public class DocGen {
     }
 
     private static String genExampleConf(String dir, String verb, AdapterMeta am) throws Exception {
-        Map adapter = new HashMap<>();
+        Map<String, Object> adapter = new HashMap<>();
         adapter.put("adapter", verb);
         adapter.put("path", "see description for examples");
-        Map params = new HashMap<>();
+        Map<String, Object> params = new HashMap<>();
         am.definitions.forEach((name, meta) -> params.put(name, meta.defaults));
         adapter.put("params", params);
-        Map example = Collections.singletonMap("example", Collections.singletonList(Collections.singletonMap(dir, adapter)));
+        Map<String, Map<String, Object>> task = new HashMap<>();
+        task.put(dir, adapter);
+        task.put("dest".equals(dir) ? "source" : "dest", Collections.emptyMap());
+        Map<String, List<Map<String, Map<String, Object>>>> example = Collections.singletonMap("example", Collections.singletonList(task));
 
         return new ObjectMapper()
                 .enable(SerializationFeature.INDENT_OUTPUT)
