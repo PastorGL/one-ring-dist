@@ -38,18 +38,22 @@ public class HadoopInput extends InputAdapter {
     @Override
     protected AdapterMeta meta() {
         return new AdapterMeta("hadoop", "File-based input adapter that utilizes available Hadoop FileSystems." +
-                " Supports plain text, delimited text (CSV/TSV), and Parquet files, optionally compressed",
+                " Supports plain text, delimited text (CSV/TSV), and Parquet files, optionally compressed. Path examples:" +
+                " hdfs:///path/to/input/with/glob/**/*.tsv, file:/mnt/data/{2020,2021,2022}/{01,02,03}/*.parquet," +
+                " s3://bucket/path/to/data/group-000??",
 
                 new DefinitionMetaBuilder()
                         .def(SUB_DIRS, "If set, any first-level subdirectories under designated path will" +
                                         " be split to different streams", Boolean.class, false,
                                 "By default, don't split")
-                        .def(SCHEMA_FROM_FILE, "Try to read schema from file (1st line of delimited text)",
+                        .def(SCHEMA_FROM_FILE, "Read schema from 1st line of delimited text file." +
+                                        " Ignored for Parquet",
                                 Boolean.class, true, "By default, do try")
                         .def(SCHEMA_DEFAULT, "Loose schema for delimited text (just column names," +
-                                        " optionally with placeholders to skip some, denoted by underscores _)",
-                                String[].class, null, "By default, don't set the schema." +
-                                        " Depending of source file type, built-in schema may be used")
+                                        " optionally with placeholders to skip some, denoted by underscores _)." +
+                                        " Only if " + SCHEMA_FROM_FILE + " is set to false",
+                                String[].class, null, "By default, don't set the schema," +
+                                        " so the file will be plain text")
                         .def(DELIMITER, "Column delimiter for delimited text",
                                 String.class, "\t", "By default, tabulation character")
                         .def(COLUMNS, "Columns to select from the schema",

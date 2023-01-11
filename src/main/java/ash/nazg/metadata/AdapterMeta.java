@@ -7,15 +7,15 @@ package ash.nazg.metadata;
 import java.util.Map;
 
 public class AdapterMeta {
-    public final String name;
+    public final String verb;
     public final String descr;
 
-    public final Map<String, DefinitionMeta> settings;
+    public final Map<String, DefinitionMeta> definitions;
 
-    public AdapterMeta(String name, String descr, Map<String, DefinitionMeta> settings) {
-        this.name = name;
+    public AdapterMeta(String verb, String descr, Map<String, DefinitionMeta> definitions) {
+        this.verb = verb;
         this.descr = descr;
 
-        this.settings = settings;
+        this.definitions = definitions;
     }
 }

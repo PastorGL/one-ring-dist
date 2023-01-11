@@ -30,7 +30,8 @@ public class S3DirectOutput extends HadoopOutput {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("s3direct", "Multipart output adapter for any S3-compatible storage, based on Hadoop adapter",
+        return new AdapterMeta("s3direct", "Multipart output adapter for any S3-compatible storage, based on Hadoop adapter." +
+                " Path example: s3d://bucket/prefix/to/output/parquet/files/.parquet",
 
                 new DefinitionMetaBuilder()
                         .def(CODEC, "Codec to compress the output", HadoopStorage.Codec.class, HadoopStorage.Codec.NONE,

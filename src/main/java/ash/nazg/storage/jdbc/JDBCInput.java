@@ -36,7 +36,7 @@ public class JDBCInput extends InputAdapter {
     protected AdapterMeta meta() {
         return new AdapterMeta("jdbc", "JDBC adapter for reading data from an SQL SELECT query against" +
                 " a configured database. Must use numeric boundaries for each part denoted by two ? placeholders," +
-                " from 0 to " + PART_COUNT + ". For example, SELECT *, weeknum - 1 AS part_num FROM table WHERE part_num BETWEEN ? AND ?",
+                " from 0 to " + PART_COUNT + ". Query example: SELECT *, weeknum - 1 AS part_num FROM weekly_table WHERE part_num BETWEEN ? AND ?",
 
                 new DefinitionMetaBuilder()
                         .def(JDBC_DRIVER, "JDBC driver, fully qualified class name")
@@ -64,7 +64,7 @@ public class JDBCInput extends InputAdapter {
         return Collections.singletonList(new DataHolder(new JdbcRDD<BinRec>(
                         ctx.sc(),
                         new DbConnection(dbDriver, dbUrl, dbUser, dbPassword),
-                        query.split(":", 2)[1],
+                        query,
                         0, Math.max(partCount, 0),
                         Math.max(partCount, 1),
                         new BinRecRowMapper(),

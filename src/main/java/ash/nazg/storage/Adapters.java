@@ -36,7 +36,7 @@ public class Adapters {
                         InputAdapter ia = (InputAdapter) iaClass.newInstance();
                         AdapterMeta meta = ia.meta;
                         AdapterInfo ai = new AdapterInfo((Class<? extends StorageAdapter>) iaClass, meta);
-                        inputs.put(meta.name, ai);
+                        inputs.put(meta.verb, ai);
                     } catch (Exception e) {
                         System.err.println("Cannot instantiate Input Adapter class '" + iaClass.getTypeName() + "'");
                         e.printStackTrace(System.err);
@@ -55,7 +55,7 @@ public class Adapters {
                         OutputAdapter oa = (OutputAdapter) oaClass.newInstance();
                         AdapterMeta meta = oa.meta;
                         AdapterInfo ai = new AdapterInfo((Class<? extends StorageAdapter>) oaClass, meta);
-                        outputs.put(meta.name, ai);
+                        outputs.put(meta.verb, ai);
                     } catch (Exception e) {
                         System.err.println("Cannot instantiate Output Adapter class '" + oaClass.getTypeName() + "'");
                         e.printStackTrace(System.err);
@@ -77,7 +77,7 @@ public class Adapters {
 
     static public InputAdapter inputAdapter(String name) throws Exception {
         for (AdapterInfo ia : INPUTS.values()) {
-            if (name.matches(ia.meta.name)) {
+            if (name.matches(ia.meta.verb)) {
                 return (InputAdapter) ia.adapterClass.newInstance();
             }
         }
@@ -87,7 +87,7 @@ public class Adapters {
 
     static public OutputAdapter outputAdapter(String name) throws Exception {
         for (AdapterInfo oa : OUTPUTS.values()) {
-            if (name.matches(oa.meta.name)) {
+            if (name.matches(oa.meta.verb)) {
                 return (OutputAdapter) oa.adapterClass.newInstance();
             }
         }

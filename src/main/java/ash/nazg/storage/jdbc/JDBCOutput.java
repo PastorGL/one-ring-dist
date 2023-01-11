@@ -23,11 +23,6 @@ import static ash.nazg.storage.jdbc.JDBCStorage.*;
 
 @SuppressWarnings("unused")
 public class JDBCOutput extends OutputAdapter {
-    private static final String JDBC_PATTERN = "^jdbc:(.+)";
-    private static final String BATCH_SIZE = "batch.size";
-    private static final String COLUMNS = "columns";
-    private static final String DELIMITER = "delimiter";
-
     private String dbDriver;
     private String dbUrl;
     private String dbUser;
@@ -41,7 +36,7 @@ public class JDBCOutput extends OutputAdapter {
     @Override
     protected AdapterMeta meta() {
         return new AdapterMeta("jdbc", "JDBC adapter which performs batch INSERT VALUES of attributes (in order of incidence)" +
-                " into a table in the configured database",
+                " into a table in the configured database. Output path is just a table name",
 
                 new DefinitionMetaBuilder()
                         .def(JDBC_DRIVER, "JDBC driver, fully qualified class name")
@@ -52,8 +47,6 @@ public class JDBCOutput extends OutputAdapter {
                                 500, "By default, use 500 records")
                         .def(COLUMNS, "Columns to write",
                                 String[].class, null, "By default, select all columns")
-                        .def(DELIMITER, "Record column delimiter",
-                                String.class, "\t", "By default, tabulation character")
                         .build()
         );
     }
@@ -66,9 +59,7 @@ public class JDBCOutput extends OutputAdapter {
         dbPassword = resolver.get(JDBC_PASSWORD);
 
         batchSize = resolver.get(BATCH_SIZE);
-
         columns = resolver.get(COLUMNS);
-        delimiter = resolver.get(DELIMITER);
     }
 
     @Override
@@ -82,7 +73,7 @@ public class JDBCOutput extends OutputAdapter {
 
         final char _delimiter = delimiter;
         final String[] _cols = columns;
-        final String _table = path.split(":", 2)[1];
+        final String _table = path;
 
         rdd.underlyingRdd.mapPartitions(partition -> {
             Connection conn = null;

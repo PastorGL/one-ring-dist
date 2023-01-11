@@ -23,8 +23,9 @@ public class HadoopOutput extends OutputAdapter {
 
     @Override
     protected AdapterMeta meta() {
-        return new AdapterMeta("hadoop", "Default output adapter that utilizes Hadoop FileSystems." +
-                " Supports text, text-based columnar (CSV/TSV), and Parquet files, optionally compressed",
+        return new AdapterMeta("hadoop", "File-based output adapter that utilizes Hadoop FileSystems." +
+                " Supports plain text, delimited text (CSV/TSV), and Parquet files, optionally compresse. Path examples:" +
+                " file:/mnt/path/to/output, hdfs://output/into/parquet/files/.parquet, s3://bucket/and/key_prefix",
 
                 new DefinitionMetaBuilder()
                         .def(CODEC, "Codec to compress the output", HadoopStorage.Codec.class, HadoopStorage.Codec.NONE,

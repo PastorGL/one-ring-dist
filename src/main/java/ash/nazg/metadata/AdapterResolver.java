@@ -16,7 +16,7 @@ public class AdapterResolver {
     private final String descr;
 
     public AdapterResolver(AdapterMeta definitions, Map<String, Object> params) {
-        this.definitions = definitions.settings;
+        this.definitions = definitions.definitions;
         this.descr = definitions.descr;
         this.holder = params;
     }
